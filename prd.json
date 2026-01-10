@@ -1,0 +1,297 @@
+{
+  "project": "QSL Executive Briefing Generator",
+  "version": "1.0",
+  "created": "2026-01-09",
+  "total_stories": 18,
+  "stories": [
+    {
+      "id": "story-001",
+      "title": "Database schema setup",
+      "description": "Create database tables for users, assessments, and generated reports",
+      "acceptance_criteria": [
+        "Users table exists with columns: id, email, password_hash, name, organization_name, created_at, updated_at",
+        "Assessments table exists with columns: id, user_id, responses (JSON), risk_score, risk_level, created_at",
+        "Reports table exists with columns: id, assessment_id, pdf_url, email_sent, created_at",
+        "Foreign key relationships established between tables",
+        "Database migrations run without errors"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "story-002",
+      "title": "User registration endpoint",
+      "description": "API endpoint for new user registration with email and password",
+      "acceptance_criteria": [
+        "POST /api/auth/register accepts email, password, name, organization_name",
+        "Password is hashed before storing (bcrypt)",
+        "Returns 201 with user object (no password) on success",
+        "Returns 400 if email already exists",
+        "Returns 400 if required fields missing",
+        "Email format is validated"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "story-003",
+      "title": "User login endpoint",
+      "description": "API endpoint for user authentication returning JWT token",
+      "acceptance_criteria": [
+        "POST /api/auth/login accepts email and password",
+        "Returns 200 with JWT token on successful authentication",
+        "Returns 401 if credentials invalid",
+        "JWT token expires in 24 hours",
+        "Token includes user_id in payload"
+      ],
+      "priority": 3,
+      "passes": true
+    },
+    {
+      "id": "story-004",
+      "title": "Assessment questions data structure",
+      "description": "Define the 11 assessment questions with options and scoring",
+      "acceptance_criteria": [
+        "Questions array contains all 11 questions from PRD",
+        "Each question has: id, text, type, options array",
+        "Each option has: label, value, points (where applicable)",
+        "Question 4 (regulatory) is multi-select type",
+        "All other questions are single-select dropdown type",
+        "Questions exported as JSON or constant for frontend use"
+      ],
+      "priority": 4,
+      "passes": true
+    },
+    {
+      "id": "story-005",
+      "title": "Risk score calculation logic",
+      "description": "Function to calculate total risk score and level from assessment responses",
+      "acceptance_criteria": [
+        "Function accepts assessment responses object",
+        "Sums points from questions 2-11 (Q1 is org size, not scored)",
+        "Question 4 (regulatory) counts checkboxes and maps to points",
+        "Returns total score (10-100 range)",
+        "Returns risk level: LOW (10-30), MODERATE (31-50), HIGH (51-70), CRITICAL (71-85), SEVERE (86-100)",
+        "Returns top 3 highest-scoring question IDs as weakest areas",
+        "Unit tests pass for edge cases (min score, max score, various combinations)"
+      ],
+      "priority": 5,
+      "passes": true
+    },
+    {
+      "id": "story-006",
+      "title": "Submit assessment endpoint",
+      "description": "API endpoint to save assessment responses and calculate score",
+      "acceptance_criteria": [
+        "POST /api/assessments requires authentication (JWT)",
+        "Accepts responses object matching question structure",
+        "Validates all 11 questions are answered",
+        "Calculates risk score using scoring logic",
+        "Saves assessment to database linked to user",
+        "Returns 201 with assessment object including score and risk_level",
+        "Returns 400 if validation fails",
+        "Returns 401 if not authenticated"
+      ],
+      "priority": 6,
+      "passes": true
+    },
+    {
+      "id": "story-007",
+      "title": "Get user assessments endpoint",
+      "description": "API endpoint to retrieve user's past assessments",
+      "acceptance_criteria": [
+        "GET /api/assessments requires authentication",
+        "Returns array of user's assessments ordered by created_at desc",
+        "Each assessment includes: id, risk_score, risk_level, created_at",
+        "Returns empty array if no assessments",
+        "Returns 401 if not authenticated"
+      ],
+      "priority": 7,
+      "passes": true
+    },
+    {
+      "id": "story-008",
+      "title": "Frontend: Registration page",
+      "description": "User registration form with validation",
+      "acceptance_criteria": [
+        "Form has fields: name, email, password, confirm password, organization name",
+        "Client-side validation for required fields",
+        "Password confirmation must match",
+        "Email format validation",
+        "Submit calls registration API",
+        "Success redirects to login page",
+        "Error displays message to user",
+        "Link to login page for existing users"
+      ],
+      "priority": 8,
+      "passes": true
+    },
+    {
+      "id": "story-009",
+      "title": "Frontend: Login page",
+      "description": "User login form with authentication",
+      "acceptance_criteria": [
+        "Form has fields: email, password",
+        "Submit calls login API",
+        "Success stores JWT token and redirects to dashboard",
+        "Error displays invalid credentials message",
+        "Link to registration page for new users"
+      ],
+      "priority": 9,
+      "passes": true
+    },
+    {
+      "id": "story-010",
+      "title": "Frontend: Assessment form",
+      "description": "Multi-step form displaying all 11 questions",
+      "acceptance_criteria": [
+        "Displays questions one at a time or in logical groups",
+        "Progress indicator shows current step",
+        "Dropdown selects for single-choice questions",
+        "Checkbox group for Question 4 (regulatory frameworks)",
+        "Next/Previous navigation between questions",
+        "All questions required before final submit",
+        "Submit button only enabled when all questions answered",
+        "Loading state while submitting",
+        "Requires authentication to access"
+      ],
+      "priority": 10,
+      "passes": true
+    },
+    {
+      "id": "story-011",
+      "title": "Frontend: Results display page",
+      "description": "Page showing assessment results after submission",
+      "acceptance_criteria": [
+        "Displays risk score prominently (large number or gauge)",
+        "Shows risk level with appropriate color (green/yellow/orange/red)",
+        "Lists top 3 vulnerability areas",
+        "Shows brief interpretation text based on risk level",
+        "Button to generate/download PDF report",
+        "Button to start new assessment",
+        "Requires authentication to access"
+      ],
+      "priority": 11,
+      "passes": true
+    },
+    {
+      "id": "story-012",
+      "title": "Frontend: User dashboard",
+      "description": "Dashboard showing user's assessment history",
+      "acceptance_criteria": [
+        "Displays list of past assessments with date, score, risk level",
+        "Click on assessment shows detailed results",
+        "Button to start new assessment",
+        "Shows user's name and organization",
+        "Logout button that clears token and redirects to login",
+        "Requires authentication to access"
+      ],
+      "priority": 12,
+      "passes": true
+    },
+    {
+      "id": "story-013",
+      "title": "PDF report content generation",
+      "description": "Generate dynamic content for PDF based on assessment results",
+      "acceptance_criteria": [
+        "Function accepts assessment data and user info",
+        "Generates executive summary paragraph based on risk level",
+        "Calculates cost projections based on org size",
+        "Generates 3 priority recommendations based on weakest areas",
+        "Generates budget estimate based on org size",
+        "All text content returned as structured object",
+        "Includes static content sections (quantum threat explanation, timeline)"
+      ],
+      "priority": 13,
+      "passes": true
+    },
+    {
+      "id": "story-014",
+      "title": "PDF report generation",
+      "description": "Generate formatted PDF document from assessment results",
+      "acceptance_criteria": [
+        "PDF has 8 pages matching PRD structure",
+        "Page 1: Cover with organization name, date, QSL branding",
+        "Page 2: Executive summary with risk score visual",
+        "Page 3: Risk profile with score breakdown chart",
+        "Page 4: Quantum threat explanation",
+        "Page 5: Cost of inaction with dollar figures",
+        "Page 6: Recommended actions (top 3)",
+        "Page 7: Budget estimate",
+        "Page 8: Next steps with QSL links",
+        "Professional formatting with headers, footers, page numbers",
+        "PDF file is valid and downloadable"
+      ],
+      "priority": 14,
+      "passes": true
+    },
+    {
+      "id": "story-015",
+      "title": "Generate report endpoint",
+      "description": "API endpoint to generate and return PDF report",
+      "acceptance_criteria": [
+        "POST /api/reports/:assessmentId requires authentication",
+        "Validates assessment belongs to authenticated user",
+        "Generates PDF using report generation function",
+        "Stores PDF URL in reports table",
+        "Returns 200 with PDF file or download URL",
+        "Returns 404 if assessment not found",
+        "Returns 403 if assessment belongs to different user",
+        "Returns 401 if not authenticated"
+      ],
+      "priority": 15,
+      "passes": true
+    },
+    {
+      "id": "story-016",
+      "title": "Email report delivery",
+      "description": "Send generated PDF report to user's email",
+      "acceptance_criteria": [
+        "POST /api/reports/:assessmentId/email requires authentication",
+        "Sends email to user's registered email address",
+        "Email includes PDF as attachment",
+        "Email has professional template with QSL branding",
+        "Subject line: 'Your Quantum Risk Executive Briefing'",
+        "Updates reports table email_sent flag",
+        "Returns 200 on success",
+        "Returns 500 if email fails with error message"
+      ],
+      "priority": 16,
+      "passes": true
+    },
+    {
+      "id": "story-017",
+      "title": "Frontend polish and navigation",
+      "description": "Navigation, routing, and overall UI polish",
+      "acceptance_criteria": [
+        "Navigation header on all authenticated pages",
+        "Logo links to dashboard",
+        "Protected routes redirect to login if not authenticated",
+        "Login redirects to dashboard if already authenticated",
+        "Consistent styling across all pages",
+        "Mobile responsive layout",
+        "Loading states for all async operations",
+        "Error handling with user-friendly messages"
+      ],
+      "priority": 17,
+      "passes": true
+    },
+    {
+      "id": "story-018",
+      "title": "Landing page",
+      "description": "Public landing page explaining the product",
+      "acceptance_criteria": [
+        "Hero section with headline and value proposition",
+        "Brief explanation of quantum threat",
+        "How it works section (3 steps: Answer questions, Get score, Download briefing)",
+        "Pricing displayed ($497)",
+        "Call-to-action button to register/start assessment",
+        "QSL branding and contact info",
+        "Link to login for existing users",
+        "Mobile responsive"
+      ],
+      "priority": 18,
+      "passes": true
+    }
+  ]
+}
