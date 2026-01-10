@@ -3,7 +3,7 @@
  * Handles all HTTP requests to the backend
  */
 
-const API_BASE = '/api';
+const API_BASE = 'https://executive-briefing-generator-production.up.railway.app';
 
 async function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`;
