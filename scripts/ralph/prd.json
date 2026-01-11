@@ -254,7 +254,7 @@
         "npm run typecheck passes"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "Requires ANTHROPIC_API_KEY env variable"
     },
     {

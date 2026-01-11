@@ -11,6 +11,7 @@
     "migrate:make": "knex migrate:make"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.7.0",
     "cors": "^2.8.5",
