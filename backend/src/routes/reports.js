@@ -30,27 +30,49 @@ if (!fs.existsSync(reportsDir)) {
  * Generate an AI-powered executive briefing using Claude
  */
 router.post('/:assessmentId/generate', requireAuth, async (req, res) => {
-  try {
-    const assessmentId = parseInt(req.params.assessmentId, 10);
+  const assessmentId = parseInt(req.params.assessmentId, 10);
 
+  // Log request details
+  console.log('[Report Generation] Starting request', {
+    assessmentId,
+    userId: req.user?.id,
+    timestamp: new Date().toISOString()
+  });
+
+  try {
     if (isNaN(assessmentId)) {
-      return res.status(400).json({ error: 'Invalid assessment ID' });
+      console.error('[Report Generation] Invalid assessment ID:', req.params.assessmentId);
+      return res.status(400).json({ error: 'Invalid assessment ID', timestamp: Date.now() });
     }
 
     // Find the assessment
+    console.log('[Report Generation] Fetching assessment:', assessmentId);
     const assessment = await Assessment.findById(assessmentId);
 
     if (!assessment) {
-      return res.status(404).json({ error: 'Assessment not found' });
+      console.error('[Report Generation] Assessment not found:', assessmentId);
+      return res.status(404).json({ error: 'Assessment not found', timestamp: Date.now() });
     }
 
     // Verify ownership
     if (assessment.user_id !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied' });
+      console.error('[Report Generation] Access denied - user mismatch', {
+        assessmentUserId: assessment.user_id,
+        requestUserId: req.user.id
+      });
+      return res.status(403).json({ error: 'Access denied', timestamp: Date.now() });
     }
+
+    // Log assessment details
+    console.log('[Report Generation] Assessment loaded', {
+      assessmentId,
+      organization_name: assessment.organization_name,
+      responsesCount: assessment.responses ? Object.keys(assessment.responses).length : 0
+    });
 
     // Get questions for scoring context
     const questions = await db('questions').select('*').orderBy('order_index', 'asc');
+    console.log('[Report Generation] Questions loaded:', questions.length);
 
     // Get or calculate scores
     let category_scores = assessment.scores;
@@ -79,17 +101,55 @@ router.post('/:assessmentId/generate', requireAuth, async (req, res) => {
     };
 
     // Generate report using Claude
-    const result = await generateReport(assessmentData);
+    console.log('[Report Generation] Claude API call starting', {
+      assessmentId,
+      org_name: assessmentData.org_name,
+      dataSize: JSON.stringify(assessmentData).length
+    });
+
+    let result;
+    try {
+      result = await generateReport(assessmentData);
+      console.log('[Report Generation] Claude API response received', {
+        assessmentId,
+        success: result.success,
+        usage: result.usage
+      });
+    } catch (claudeError) {
+      console.error('[Report Generation] Claude API error', {
+        assessmentId,
+        error: claudeError.message,
+        response: claudeError.response?.data || claudeError.response,
+        stack: claudeError.stack
+      });
+      return res.status(500).json({
+        error: 'Claude API error: ' + claudeError.message,
+        timestamp: Date.now()
+      });
+    }
 
     if (!result.success) {
-      throw new Error('Report generation failed');
+      console.error('[Report Generation] Report generation failed - no success flag', {
+        assessmentId,
+        result
+      });
+      return res.status(500).json({
+        error: 'Report generation failed',
+        timestamp: Date.now()
+      });
     }
 
     // Save report to database
+    console.log('[Report Generation] Saving report to database', { assessmentId });
     const report = await Report.create({
       assessment_id: assessmentId,
       content: result.report,
       pdf_url: null
+    });
+
+    console.log('[Report Generation] Complete', {
+      assessmentId,
+      reportId: report.id
     });
 
     res.status(201).json({
@@ -99,8 +159,15 @@ router.post('/:assessmentId/generate', requireAuth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Report generation error:', error);
-    res.status(500).json({ error: error.message || 'Failed to generate report' });
+    console.error('[Report Generation] Unexpected error', {
+      assessmentId,
+      error: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({
+      error: error.message || 'Failed to generate report',
+      timestamp: Date.now()
+    });
   }
 });
 
