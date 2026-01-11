@@ -1,0 +1,625 @@
+{
+  "project": "Executive Briefing Generator V2",
+  "branchName": "ralph/executive-briefing-v2",
+  "description": "Post-quantum security assessment tool for healthcare organizations. 48 deep questions across 6 categories, LLM-powered personalized executive briefing PDF generation.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create questions database schema",
+      "description": "As a developer, I want to create a questions table so that assessment questions can be stored and managed",
+      "acceptanceCriteria": [
+        "Create migration for questions table with: id, category, question_text, answer_type, answer_options (JSON), weight, order_index",
+        "Migration runs successfully",
+        "npm run typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Categories: data_sensitivity, encryption, compliance, vendor_risk, incident_response, quantum_readiness"
+    },
+    {
+      "id": "US-002",
+      "title": "Seed Category 1 questions - Data Sensitivity",
+      "description": "As a developer, I want to seed the 8 data sensitivity questions so users can assess their data classification",
+      "acceptanceCriteria": [
+        "Create seed file with 8 questions for data_sensitivity category",
+        "Questions include proper answer_type (multi-select, range, yes-no)",
+        "Questions include answer_options as JSON arrays",
+        "Seed runs successfully and questions appear in database",
+        "npm run typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Q1-8: PHI types, record count, retention period, long-term sensitivity, classification system, access count, last audit, data mapping"
+    },
+    {
+      "id": "US-003",
+      "title": "Seed Category 2 questions - Encryption Infrastructure",
+      "description": "As a developer, I want to seed the 8 encryption questions so users can assess their cryptographic posture",
+      "acceptanceCriteria": [
+        "Create seed file with 8 questions for encryption category",
+        "Questions cover: at-rest encryption, in-transit, key exchange, KMS, audit date, crypto inventory, PQC testing, vulnerability percentage",
+        "Seed runs successfully",
+        "npm run typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Q9-16"
+    },
+    {
+      "id": "US-004",
+      "title": "Seed Category 3 questions - Compliance",
+      "description": "As a developer, I want to seed the 8 compliance questions so users can assess their regulatory posture",
+      "acceptanceCriteria": [
+        "Create seed file with 8 questions for compliance category",
+        "Questions cover: applicable regulations, last risk assessment, key management policies, BAAs, audit readiness, IR procedures, PQC compliance, regulatory tracking",
+        "Seed runs successfully",
+        "npm run typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Q17-24"
+    },
+    {
+      "id": "US-005",
+      "title": "Seed Category 4 questions - Vendor Risk",
+      "description": "As a developer, I want to seed the 8 vendor risk questions so users can assess third-party exposure",
+      "acceptanceCriteria": [
+        "Create seed file with 8 questions for vendor_risk category",
+        "Questions cover: vendor count, encryption assessment, contract requirements, cloud services, cloud encryption knowledge, PQC vendor discussions, last assessment, subcontractor visibility",
+        "Seed runs successfully",
+        "npm run typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Q25-32"
+    },
+    {
+      "id": "US-006",
+      "title": "Seed Category 5 questions - Incident Response",
+      "description": "As a developer, I want to seed the 8 incident response questions so users can assess their recovery readiness",
+      "acceptanceCriteria": [
+        "Create seed file with 8 questions for incident_response category",
+        "Questions cover: IR plan, crypto compromise scenarios, key rotation speed, last tabletop, offline backups, recovery capability, cyber insurance, HNDL monitoring",
+        "Seed runs successfully",
+        "npm run typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Q33-40"
+    },
+    {
+      "id": "US-007",
+      "title": "Seed Category 6 questions - Quantum Readiness",
+      "description": "As a developer, I want to seed the 8 quantum readiness questions so users can assess their PQC preparedness",
+      "acceptanceCriteria": [
+        "Create seed file with 8 questions for quantum_readiness category",
+        "Questions cover: leadership awareness, migration roadmap, budget allocation, target timeline, priority systems, staff training, NIST tracking, vendor PQC discussions",
+        "Seed runs successfully",
+        "npm run typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Q41-48"
+    },
+    {
+      "id": "US-008",
+      "title": "Create GET /api/questions endpoint",
+      "description": "As a frontend, I want to fetch all questions grouped by category so I can render the assessment form",
+      "acceptanceCriteria": [
+        "Create GET /api/questions route",
+        "Returns questions grouped by category in order",
+        "Each question includes id, question_text, answer_type, answer_options",
+        "Response is valid JSON",
+        "npm run typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Create assessments table schema",
+      "description": "As a developer, I want to store assessment submissions so users can track history",
+      "acceptanceCriteria": [
+        "Create migration for assessments table with: id, user_id, organization_name, organization_type, employee_count, responses (JSON), scores (JSON), overall_score, created_at",
+        "Migration runs successfully",
+        "Foreign key to users table",
+        "npm run typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Create scoring algorithm utility",
+      "description": "As a developer, I want a scoring function that calculates risk scores from responses",
+      "acceptanceCriteria": [
+        "Create src/utils/scoring.js with calculateScores function",
+        "Function takes responses object, returns category scores and overall score",
+        "Category weights: data_sensitivity 20%, encryption 25%, compliance 15%, vendor_risk 15%, incident_response 10%, quantum_readiness 15%",
+        "Each answer maps to 0-100 points based on risk level",
+        "Returns object with category_scores and overall_score",
+        "Unit tests pass for scoring function",
+        "npm run typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "Worst answers = 0 points, best answers = 100 points"
+    },
+    {
+      "id": "US-011",
+      "title": "Create risk level utility",
+      "description": "As a developer, I want a function that converts scores to risk levels",
+      "acceptanceCriteria": [
+        "Create getRiskLevel function in scoring.js",
+        "0-30 = 'Critical' (red), 31-50 = 'High' (orange), 51-70 = 'Moderate' (yellow), 71-85 = 'Low' (light green), 86-100 = 'Prepared' (green)",
+        "Returns object with level name and color",
+        "Unit tests pass",
+        "npm run typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Create industry benchmark data",
+      "description": "As a developer, I want benchmark data so we can compare user scores to industry averages",
+      "acceptanceCriteria": [
+        "Create src/data/benchmarks.js with healthcare industry averages",
+        "Include average scores per category and overall",
+        "Include percentile thresholds (25th, 50th, 75th, 90th)",
+        "Export getPercentile function that takes score and returns percentile",
+        "npm run typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "Based on typical healthcare org security posture data"
+    },
+    {
+      "id": "US-013",
+      "title": "Create POST /api/assessments endpoint",
+      "description": "As a frontend, I want to submit assessment responses so they can be scored and saved",
+      "acceptanceCriteria": [
+        "Create POST /api/assessments route",
+        "Accepts: organization_name, organization_type, employee_count, responses object",
+        "Calculates scores using scoring utility",
+        "Saves assessment to database",
+        "Returns assessment ID and scores",
+        "Requires authentication",
+        "npm run typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Create GET /api/assessments endpoint",
+      "description": "As a user, I want to see my assessment history",
+      "acceptanceCriteria": [
+        "Create GET /api/assessments route",
+        "Returns all assessments for authenticated user",
+        "Ordered by created_at descending",
+        "Includes organization_name, overall_score, risk_level, created_at",
+        "Requires authentication",
+        "npm run typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Create GET /api/assessments/:id endpoint",
+      "description": "As a user, I want to view a specific assessment's full details",
+      "acceptanceCriteria": [
+        "Create GET /api/assessments/:id route",
+        "Returns full assessment including all responses and scores",
+        "Only returns assessment if owned by authenticated user",
+        "Returns 404 if not found or not owned",
+        "npm run typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Create report generation prompt template",
+      "description": "As a developer, I want a prompt template for generating personalized executive briefings",
+      "acceptanceCriteria": [
+        "Create src/prompts/executive-briefing.js with prompt template",
+        "Template includes placeholders for: org_name, org_type, employee_count, all responses, all scores, percentile",
+        "Prompt specifies 8 sections: Executive Summary, Risk Dashboard, Category Analysis (6), Remediation Roadmap, Compliance Gaps, Next Steps",
+        "Includes tone guidance (executive-level, urgent but not alarmist, personalized)",
+        "Includes embedded knowledge from quantum security domain",
+        "npm run typecheck passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "This is the core value - the prompt IS the product"
+    },
+    {
+      "id": "US-017",
+      "title": "Create Claude API integration utility",
+      "description": "As a developer, I want a utility to call Claude API for report generation",
+      "acceptanceCriteria": [
+        "Create src/utils/claude.js with generateReport function",
+        "Function takes assessment data and returns generated report text",
+        "Uses Anthropic SDK with claude-3-5-sonnet model",
+        "Handles API errors gracefully",
+        "Returns structured sections as JSON",
+        "npm run typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "Requires ANTHROPIC_API_KEY env variable"
+    },
+    {
+      "id": "US-018",
+      "title": "Create POST /api/reports/:assessmentId/generate endpoint",
+      "description": "As a user, I want to generate a personalized report from my assessment",
+      "acceptanceCriteria": [
+        "Create POST /api/reports/:assessmentId/generate route",
+        "Fetches assessment data",
+        "Calls Claude API with populated prompt",
+        "Saves generated report to database",
+        "Returns report ID",
+        "Requires authentication and ownership",
+        "npm run typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Create reports table schema",
+      "description": "As a developer, I want to store generated reports",
+      "acceptanceCriteria": [
+        "Create migration for reports table with: id, assessment_id, content (JSON), pdf_path, created_at",
+        "Migration runs successfully",
+        "Foreign key to assessments table",
+        "npm run typecheck passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Create PDF generation utility",
+      "description": "As a developer, I want to convert report content to a branded PDF",
+      "acceptanceCriteria": [
+        "Create src/utils/pdf.js with generatePDF function",
+        "Uses pdfkit or similar library",
+        "Accepts report content JSON",
+        "Generates 8-page PDF with QSL branding",
+        "Includes header/footer with logo",
+        "Saves PDF to /reports directory",
+        "Returns file path",
+        "npm run typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "Brand colors: dark background, blue/cyan accents"
+    },
+    {
+      "id": "US-021",
+      "title": "Create PDF cover page template",
+      "description": "As a user, I want a professional cover page on my report",
+      "acceptanceCriteria": [
+        "Add cover page generation to PDF utility",
+        "Includes: QSL logo, report title, organization name, date generated, overall risk score with color",
+        "Professional layout matching QSL brand",
+        "npm run typecheck passes"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Create PDF risk gauge visualization",
+      "description": "As a user, I want a visual risk gauge showing my overall score",
+      "acceptanceCriteria": [
+        "Add risk gauge graphic to PDF",
+        "Semi-circular gauge with score pointer",
+        "Color zones matching risk levels",
+        "Score number displayed prominently",
+        "npm run typecheck passes"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Create PDF category scores chart",
+      "description": "As a user, I want to see all my category scores compared visually",
+      "acceptanceCriteria": [
+        "Add bar chart or radar chart to PDF showing 6 category scores",
+        "Include industry average comparison line",
+        "Color-coded by risk level",
+        "npm run typecheck passes"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Create GET /api/reports/:id/download endpoint",
+      "description": "As a user, I want to download my report as a PDF",
+      "acceptanceCriteria": [
+        "Create GET /api/reports/:id/download route",
+        "Returns PDF file as download",
+        "Sets correct Content-Type and Content-Disposition headers",
+        "Requires authentication and ownership",
+        "npm run typecheck passes"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Create organization profile form component",
+      "description": "As a user, I want to enter my organization details before the assessment",
+      "acceptanceCriteria": [
+        "Create OrganizationProfileForm component",
+        "Fields: organization_name, organization_type (dropdown), employee_count (range dropdown)",
+        "Validation for required fields",
+        "Stores values in assessment state",
+        "Verify in browser that form renders and validates",
+        "npm run typecheck passes"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": "org_type options: Hospital, Clinic, Insurance, Pharmacy, Research, Other"
+    },
+    {
+      "id": "US-026",
+      "title": "Create assessment category navigation component",
+      "description": "As a user, I want to see my progress through the 6 categories",
+      "acceptanceCriteria": [
+        "Create CategoryNav component showing 6 category tabs/steps",
+        "Highlights current category",
+        "Shows completion status for each category",
+        "Allows navigation to completed categories",
+        "Verify in browser",
+        "npm run typecheck passes"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027",
+      "title": "Create question card component",
+      "description": "As a user, I want to see each question clearly with its answer options",
+      "acceptanceCriteria": [
+        "Create QuestionCard component",
+        "Displays question text prominently",
+        "Renders appropriate input based on answer_type: multi-select (checkboxes), range (radio buttons), yes-no (radio buttons)",
+        "Highlights selected answers",
+        "Verify in browser",
+        "npm run typecheck passes"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-028",
+      "title": "Create assessment page with question flow",
+      "description": "As a user, I want to step through all 48 questions organized by category",
+      "acceptanceCriteria": [
+        "Create /assessment page",
+        "Fetches questions from API on load",
+        "Shows one category at a time (8 questions)",
+        "Next button advances to next category when all questions answered",
+        "Back button returns to previous category",
+        "Stores responses in state",
+        "Verify in browser - can navigate through all categories",
+        "npm run typecheck passes"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-029",
+      "title": "Create assessment submission handler",
+      "description": "As a user, I want to submit my completed assessment",
+      "acceptanceCriteria": [
+        "Add Submit button on final category",
+        "Button disabled until all 48 questions answered",
+        "Submits to POST /api/assessments",
+        "Shows loading state during submission",
+        "Redirects to results page on success",
+        "Shows error message on failure",
+        "npm run typecheck passes"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-030",
+      "title": "Create results page with score display",
+      "description": "As a user, I want to see my assessment results immediately after submission",
+      "acceptanceCriteria": [
+        "Create /results/:assessmentId page",
+        "Displays overall score with risk gauge visualization",
+        "Shows risk level label with color",
+        "Displays percentile compared to industry",
+        "Shows 6 category scores",
+        "Verify in browser",
+        "npm run typecheck passes"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-031",
+      "title": "Create generate report button on results page",
+      "description": "As a user, I want to generate my personalized executive briefing from the results page",
+      "acceptanceCriteria": [
+        "Add 'Generate Executive Briefing' button to results page",
+        "Button calls POST /api/reports/:assessmentId/generate",
+        "Shows loading state with message 'Generating your personalized briefing...'",
+        "On success, shows download button",
+        "On error, shows error message with retry option",
+        "npm run typecheck passes"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": "Generation may take 30-60 seconds"
+    },
+    {
+      "id": "US-032",
+      "title": "Create PDF download button component",
+      "description": "As a user, I want to download my generated PDF report",
+      "acceptanceCriteria": [
+        "Create DownloadButton component",
+        "Links to GET /api/reports/:id/download",
+        "Opens download in new tab or triggers download",
+        "Shows 'Download Executive Briefing' label",
+        "Verify download works in browser",
+        "npm run typecheck passes"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-033",
+      "title": "Create user dashboard with assessment history",
+      "description": "As a user, I want to see all my past assessments",
+      "acceptanceCriteria": [
+        "Create /dashboard page",
+        "Fetches assessments from GET /api/assessments",
+        "Displays table/cards with: organization_name, date, overall_score, risk_level",
+        "Click on assessment navigates to results page",
+        "Shows 'Start New Assessment' button",
+        "Verify in browser",
+        "npm run typecheck passes"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-034",
+      "title": "Update landing page hero copy",
+      "description": "As a visitor, I want to understand the value proposition immediately",
+      "acceptanceCriteria": [
+        "Update hero headline to emphasize 48-question deep assessment",
+        "Update subhead to mention LLM-powered personalized briefing",
+        "Update CTA to 'Start Your Assessment'",
+        "Keep risk gauge visualization",
+        "Verify in browser",
+        "npm run typecheck passes"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-035",
+      "title": "Add email delivery for reports",
+      "description": "As a user, I want to email the report to myself or colleagues",
+      "acceptanceCriteria": [
+        "Add 'Email Report' button on results page",
+        "Opens modal to enter email address(es)",
+        "Create POST /api/reports/:id/email endpoint",
+        "Sends email with PDF attachment using nodemailer or similar",
+        "Shows success/error message",
+        "npm run typecheck passes"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": "Requires email service configuration"
+    },
+    {
+      "id": "US-036",
+      "title": "Add environment variables for production",
+      "description": "As a developer, I want proper environment configuration",
+      "acceptanceCriteria": [
+        "Create .env.example with all required variables",
+        "Variables: DATABASE_URL, JWT_SECRET, ANTHROPIC_API_KEY, EMAIL_HOST, EMAIL_USER, EMAIL_PASS",
+        "Update README with setup instructions",
+        "npm run typecheck passes"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-037",
+      "title": "Add loading states throughout app",
+      "description": "As a user, I want feedback when actions are processing",
+      "acceptanceCriteria": [
+        "Add loading spinner component",
+        "Show loading state on: question fetch, assessment submit, report generate, PDF download",
+        "Disable buttons during loading",
+        "Verify in browser",
+        "npm run typecheck passes"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-038",
+      "title": "Add error boundary and error handling",
+      "description": "As a user, I want graceful error handling",
+      "acceptanceCriteria": [
+        "Create ErrorBoundary component",
+        "Wrap main app routes",
+        "Show user-friendly error message on crash",
+        "Include 'Try Again' button",
+        "Log errors to console in development",
+        "npm run typecheck passes"
+      ],
+      "priority": 39,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-039",
+      "title": "Add mobile responsive styles",
+      "description": "As a mobile user, I want the assessment to work on my phone",
+      "acceptanceCriteria": [
+        "Assessment form is usable on mobile viewport",
+        "Questions are readable without horizontal scroll",
+        "Buttons are tap-friendly (min 44px)",
+        "Navigation works on mobile",
+        "Verify in browser at 375px width",
+        "npm run typecheck passes"
+      ],
+      "priority": 40,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-040",
+      "title": "Add progress save/resume functionality",
+      "description": "As a user, I want to save my progress and resume later",
+      "acceptanceCriteria": [
+        "Save responses to localStorage on each answer",
+        "On assessment page load, restore from localStorage if exists",
+        "Clear localStorage on successful submission",
+        "Show 'Resume Assessment' option on dashboard if incomplete assessment exists",
+        "npm run typecheck passes"
+      ],
+      "priority": 41,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
