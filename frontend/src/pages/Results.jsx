@@ -30,6 +30,11 @@ function Results() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // Report generation state
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [reportId, setReportId] = useState(null)
+  const [reportError, setReportError] = useState('')
+
   // Get scores from navigation state if available
   const stateScores = location.state?.scores
 
@@ -118,6 +123,25 @@ function Results() {
     if (score <= 70) return 'Moderate'
     if (score <= 85) return 'Low'
     return 'Prepared'
+  }
+
+  // Handle report generation
+  const handleGenerateReport = async () => {
+    setIsGenerating(true)
+    setReportError('')
+
+    try {
+      const result = await api.generateReport(assessmentId)
+      setReportId(result.id || result.reportId)
+    } catch (err) {
+      if (err.status === 401) {
+        navigate('/login')
+      } else {
+        setReportError(err.data?.error || 'Failed to generate report. Please try again.')
+      }
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   return (
@@ -209,6 +233,70 @@ function Results() {
               )
             })}
           </div>
+        </div>
+
+        {/* Report Generation Section */}
+        <div className="report-generation-section">
+          <h2>Get Your Executive Briefing</h2>
+          <p className="report-description">
+            Generate a personalized executive briefing with detailed recommendations,
+            remediation roadmap, and compliance analysis.
+          </p>
+
+          {reportError && (
+            <div className="alert alert-error" style={{ marginBottom: '16px' }}>
+              {reportError}
+            </div>
+          )}
+
+          {isGenerating ? (
+            <div className="generating-state">
+              <div className="spinner"></div>
+              <p>Generating your personalized briefing...</p>
+              <p className="generating-note">This may take up to 60 seconds</p>
+            </div>
+          ) : reportId ? (
+            <div className="report-ready">
+              <div className="report-ready-icon">&#10003;</div>
+              <p>Your executive briefing is ready!</p>
+              <a
+                href={`${api.getReportDownloadUrl(assessmentId)}`}
+                className="btn btn-primary btn-large"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={async (e) => {
+                  e.preventDefault()
+                  const token = localStorage.getItem('token')
+                  try {
+                    const response = await fetch(api.getReportDownloadUrl(assessmentId), {
+                      headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                    if (!response.ok) throw new Error('Download failed')
+                    const blob = await response.blob()
+                    const url = window.URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `Executive-Briefing-${assessmentId}.pdf`
+                    document.body.appendChild(a)
+                    a.click()
+                    window.URL.revokeObjectURL(url)
+                    document.body.removeChild(a)
+                  } catch {
+                    setReportError('Failed to download. Please try again.')
+                  }
+                }}
+              >
+                Download Executive Briefing (PDF)
+              </a>
+            </div>
+          ) : (
+            <button
+              onClick={handleGenerateReport}
+              className="btn btn-primary btn-large"
+            >
+              Generate Executive Briefing
+            </button>
+          )}
         </div>
 
         {/* Action Buttons */}

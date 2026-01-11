@@ -60,7 +60,7 @@ export const api = {
   getAssessment: (id) => request(`/assessments/${id}`),
 
   // Reports endpoints
-  generateReport: (assessmentId) => request(`/reports/${assessmentId}`, {
+  generateReport: (assessmentId) => request(`/reports/${assessmentId}/generate`, {
     method: 'POST'
   }),
 
@@ -71,7 +71,7 @@ export const api = {
   }),
 
   // Download report (returns URL for direct download)
-  getReportDownloadUrl: (assessmentId) => `/api/reports/${assessmentId}/download`
+  getReportDownloadUrl: (assessmentId) => `${API_BASE}/reports/${assessmentId}/download`
 };
 
 export default api;
