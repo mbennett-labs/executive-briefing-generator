@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import api from '../services/api'
+import DownloadButton from '../components/DownloadButton'
 
 // Risk level configuration matching backend scoring.js
 const RISK_LEVELS = {
@@ -259,35 +260,11 @@ function Results() {
             <div className="report-ready">
               <div className="report-ready-icon">&#10003;</div>
               <p>Your executive briefing is ready!</p>
-              <a
-                href={`${api.getReportDownloadUrl(assessmentId)}`}
-                className="btn btn-primary btn-large"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={async (e) => {
-                  e.preventDefault()
-                  const token = localStorage.getItem('token')
-                  try {
-                    const response = await fetch(api.getReportDownloadUrl(assessmentId), {
-                      headers: { 'Authorization': `Bearer ${token}` }
-                    })
-                    if (!response.ok) throw new Error('Download failed')
-                    const blob = await response.blob()
-                    const url = window.URL.createObjectURL(blob)
-                    const a = document.createElement('a')
-                    a.href = url
-                    a.download = `Executive-Briefing-${assessmentId}.pdf`
-                    document.body.appendChild(a)
-                    a.click()
-                    window.URL.revokeObjectURL(url)
-                    document.body.removeChild(a)
-                  } catch {
-                    setReportError('Failed to download. Please try again.')
-                  }
-                }}
-              >
-                Download Executive Briefing (PDF)
-              </a>
+              <DownloadButton
+                assessmentId={assessmentId}
+                label="Download Executive Briefing (PDF)"
+                className="btn-large"
+              />
             </div>
           ) : (
             <button
