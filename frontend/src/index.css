@@ -1360,6 +1360,13 @@ body {
   margin-bottom: 8px;
 }
 
+.report-actions {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 @media (max-width: 900px) {
   .assessment-container {
     flex-direction: column;
