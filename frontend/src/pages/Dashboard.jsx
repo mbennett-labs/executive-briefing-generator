@@ -22,9 +22,16 @@ function Dashboard() {
   const [assessments, setAssessments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [hasIncomplete, setHasIncomplete] = useState(false)
 
   useEffect(() => {
     fetchAssessments()
+    // Check for incomplete assessment in localStorage
+    const savedResponses = localStorage.getItem('assessment_responses')
+    const savedProfile = localStorage.getItem('assessment_profile')
+    if (savedResponses || savedProfile) {
+      setHasIncomplete(true)
+    }
   }, [])
 
   const fetchAssessments = async () => {
@@ -76,12 +83,28 @@ function Dashboard() {
             Evaluate your organization's quantum computing risk exposure and receive
             a personalized executive briefing with recommendations.
           </p>
-          <button
-            onClick={() => navigate('/assessment')}
-            className="btn btn-primary btn-large"
-          >
-            Start New Assessment
-          </button>
+          <div className="action-buttons">
+            {hasIncomplete && (
+              <button
+                onClick={() => navigate('/assessment')}
+                className="btn btn-primary btn-large"
+              >
+                Resume Assessment
+              </button>
+            )}
+            <button
+              onClick={() => {
+                // Clear any incomplete data when starting fresh
+                localStorage.removeItem('assessment_profile')
+                localStorage.removeItem('assessment_responses')
+                localStorage.removeItem('assessment_category')
+                navigate('/assessment')
+              }}
+              className={`btn ${hasIncomplete ? 'btn-secondary' : 'btn-primary'} btn-large`}
+            >
+              {hasIncomplete ? 'Start Fresh' : 'Start Assessment'}
+            </button>
+          </div>
         </div>
 
         {/* Assessment History */}
