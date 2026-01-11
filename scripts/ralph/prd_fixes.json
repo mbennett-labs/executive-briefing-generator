@@ -1,0 +1,55 @@
+{
+  "project": "Executive Briefing Generator - Bug Fixes",
+  "version": "2.1",
+  "stories": [
+    {
+      "id": "US-041",
+      "title": "Add comprehensive error logging to report generation endpoint",
+      "priority": 1,
+      "passes": true,
+      "description": "Add try-catch logging to the POST /api/reports/:id/generate endpoint to capture and log all errors for debugging.",
+      "acceptanceCriteria": [
+        "Wrap the entire report generation logic in try-catch block",
+        "Log request details: reportId, organization_name, assessment data size",
+        "Log each step: Claude API call start, response received, PDF generation start, completion",
+        "Catch and log API errors with full error message and response",
+        "Catch and log PDF generation errors with stack trace",
+        "Return 500 with JSON error message: { error: 'specific error message', timestamp: Date.now() }",
+        "Log all errors to console.error for Railway logs visibility",
+        "Test by calling endpoint and verifying errors appear in Railway Logs"
+      ]
+    },
+    {
+      "id": "US-042",
+      "title": "Fix page scroll position on navigation between pages",
+      "priority": 2,
+      "passes": true,
+      "description": "When user navigates between assessment pages or to results page, page should scroll to top automatically instead of staying at bottom of previous page.",
+      "acceptanceCriteria": [
+        "In AssessmentPage component, add window.scrollTo(0, 0) when page changes",
+        "In ResultsPage component, add window.scrollTo(0, 0) on component mount",
+        "Scroll happens BEFORE page render (use useEffect with [] dependency)",
+        "Test: Start assessment, go to page 2 -> should scroll to top",
+        "Test: Answer all questions and submit -> results page should start at top",
+        "Test on mobile viewport (375px) to ensure it works"
+      ]
+    },
+    {
+      "id": "US-043",
+      "title": "Fix gauge number clipping at top of results page",
+      "priority": 2,
+      "passes": true,
+      "description": "The risk score number (27, 35, etc) in the circular gauge is getting cut off at the top of the page. Needs CSS overflow fix.",
+      "acceptanceCriteria": [
+        "Find the gauge component CSS (likely .gauge, .gauge-circle, or similar)",
+        "Add overflow: visible to parent container if needed",
+        "Verify the number text has proper padding/margin (at least 16px top margin)",
+        "Check that the entire gauge circle and number are visible without clipping",
+        "Test on desktop (1024px) viewport - number should be fully visible",
+        "Test on mobile (375px) viewport - number should still be visible and readable",
+        "Ensure gauge background color doesn't hide the number"
+      ]
+    }
+  ],
+  "notes": "All three stories are high priority. US-041 is critical for debugging."
+}

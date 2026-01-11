@@ -730,6 +730,7 @@ body {
 .score-section {
   text-align: center;
   margin-bottom: 40px;
+  overflow: visible;
 }
 
 /* Gauge Styles */
@@ -737,12 +738,15 @@ body {
   display: flex;
   justify-content: center;
   margin-bottom: 20px;
+  padding-top: 20px;
+  overflow: visible;
 }
 
 .gauge {
   width: 200px;
   height: 100px;
   position: relative;
+  overflow: visible;
 }
 
 .gauge-body {
@@ -753,7 +757,7 @@ body {
   position: relative;
   border-top-left-radius: 100% 200%;
   border-top-right-radius: 100% 200%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .gauge-fill {
@@ -780,12 +784,14 @@ body {
   align-items: center;
   justify-content: center;
   padding-top: 20px;
+  overflow: visible;
 }
 
 .score-value {
   font-size: 48px;
   font-weight: bold;
   line-height: 1;
+  margin-top: 16px;
 }
 
 .score-label {
