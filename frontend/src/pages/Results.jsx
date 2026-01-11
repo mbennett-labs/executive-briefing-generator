@@ -43,6 +43,11 @@ function Results() {
   // Get scores from navigation state if available
   const stateScores = location.state?.scores
 
+  // Scroll to top on component mount
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
+
   useEffect(() => {
     const fetchAssessment = async () => {
       if (!assessmentId) {

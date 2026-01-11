@@ -87,6 +87,7 @@ function Assessment() {
         const nextIndex = currentCategoryIndex + 1
         setCurrentCategoryIndex(nextIndex)
         localStorage.setItem('assessment_category', nextIndex.toString())
+        window.scrollTo(0, 0)
       }
     }
   }
@@ -96,6 +97,7 @@ function Assessment() {
       const prevIndex = currentCategoryIndex - 1
       setCurrentCategoryIndex(prevIndex)
       localStorage.setItem('assessment_category', prevIndex.toString())
+      window.scrollTo(0, 0)
     }
   }
 
@@ -104,6 +106,7 @@ function Assessment() {
     if (index !== -1) {
       setCurrentCategoryIndex(index)
       localStorage.setItem('assessment_category', index.toString())
+      window.scrollTo(0, 0)
     }
   }
 
