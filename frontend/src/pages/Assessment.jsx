@@ -1,29 +1,47 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
+import OrganizationProfileForm from '../components/OrganizationProfileForm'
+import CategoryNav from '../components/CategoryNav'
+import QuestionCard from '../components/QuestionCard'
 
 function Assessment() {
   const navigate = useNavigate()
-  const [questions, setQuestions] = useState([])
-  const [currentStep, setCurrentStep] = useState(0)
+  const [step, setStep] = useState('profile') // 'profile' | 'questions'
+  const [orgProfile, setOrgProfile] = useState(null)
+  const [categories, setCategories] = useState([])
+  const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0)
   const [responses, setResponses] = useState({})
-  const [isLoading, setIsLoading] = useState(true)
+  const [completedCategories, setCompletedCategories] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetchQuestions()
+    // Try to restore from localStorage
+    const savedProfile = localStorage.getItem('assessment_profile')
+    const savedResponses = localStorage.getItem('assessment_responses')
+    const savedCategory = localStorage.getItem('assessment_category')
+
+    if (savedProfile) {
+      setOrgProfile(JSON.parse(savedProfile))
+      setStep('questions')
+      fetchQuestions()
+    }
+    if (savedResponses) {
+      setResponses(JSON.parse(savedResponses))
+    }
+    if (savedCategory) {
+      setCurrentCategoryIndex(parseInt(savedCategory, 10))
+    }
   }, [])
 
   const fetchQuestions = async () => {
+    setIsLoading(true)
+    setError('')
     try {
       const data = await api.getQuestions()
-      setQuestions(data.questions)
-      const initialResponses = {}
-      data.questions.forEach(q => {
-        initialResponses[q.id] = q.type === 'multiselect' ? [] : ''
-      })
-      setResponses(initialResponses)
+      setCategories(data.categories || [])
     } catch (err) {
       setError('Failed to load questions. Please try again.')
     } finally {
@@ -31,54 +49,66 @@ function Assessment() {
     }
   }
 
-  const currentQuestion = questions[currentStep]
-  const totalQuestions = questions.length
-  const progress = ((currentStep + 1) / totalQuestions) * 100
-
-  const handleDropdownChange = (questionId, value) => {
-    setResponses(prev => ({ ...prev, [questionId]: value }))
+  const handleProfileSubmit = (profile) => {
+    setOrgProfile(profile)
+    localStorage.setItem('assessment_profile', JSON.stringify(profile))
+    setStep('questions')
+    fetchQuestions()
   }
 
-  const handleCheckboxChange = (questionId, value, checked) => {
-    setResponses(prev => {
-      const current = prev[questionId] || []
-      if (checked) {
-        return { ...prev, [questionId]: [...current, value] }
-      } else {
-        return { ...prev, [questionId]: current.filter(v => v !== value) }
+  const handleResponseChange = (questionId, value) => {
+    const newResponses = { ...responses, [questionId]: value }
+    setResponses(newResponses)
+    localStorage.setItem('assessment_responses', JSON.stringify(newResponses))
+  }
+
+  const currentCategory = categories[currentCategoryIndex]
+  const currentQuestions = currentCategory?.questions || []
+
+  const isCategoryComplete = (category) => {
+    if (!category?.questions) return false
+    return category.questions.every(q => {
+      const response = responses[q.id]
+      if (q.answer_type === 'multi-select') {
+        return Array.isArray(response) && response.length > 0
       }
+      return response !== undefined && response !== null && response !== ''
     })
   }
 
-  const isCurrentQuestionAnswered = () => {
-    if (!currentQuestion) return false
-    const response = responses[currentQuestion.id]
-    if (currentQuestion.type === 'multiselect') {
-      return Array.isArray(response) && response.length > 0
+  const handleNextCategory = () => {
+    if (isCategoryComplete(currentCategory)) {
+      const categoryKey = currentCategory.key
+      if (!completedCategories.includes(categoryKey)) {
+        setCompletedCategories([...completedCategories, categoryKey])
+      }
+
+      if (currentCategoryIndex < categories.length - 1) {
+        const nextIndex = currentCategoryIndex + 1
+        setCurrentCategoryIndex(nextIndex)
+        localStorage.setItem('assessment_category', nextIndex.toString())
+      }
     }
-    return response !== ''
+  }
+
+  const handlePreviousCategory = () => {
+    if (currentCategoryIndex > 0) {
+      const prevIndex = currentCategoryIndex - 1
+      setCurrentCategoryIndex(prevIndex)
+      localStorage.setItem('assessment_category', prevIndex.toString())
+    }
+  }
+
+  const handleCategoryClick = (categoryKey) => {
+    const index = categories.findIndex(c => c.key === categoryKey)
+    if (index !== -1) {
+      setCurrentCategoryIndex(index)
+      localStorage.setItem('assessment_category', index.toString())
+    }
   }
 
   const areAllQuestionsAnswered = () => {
-    return questions.every(q => {
-      const response = responses[q.id]
-      if (q.type === 'multiselect') {
-        return Array.isArray(response) && response.length > 0
-      }
-      return response !== ''
-    })
-  }
-
-  const handleNext = () => {
-    if (currentStep < totalQuestions - 1) {
-      setCurrentStep(currentStep + 1)
-    }
-  }
-
-  const handlePrevious = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1)
-    }
+    return categories.every(cat => isCategoryComplete(cat))
   }
 
   const handleSubmit = async () => {
@@ -91,8 +121,19 @@ function Assessment() {
     setError('')
 
     try {
-      const result = await api.submitAssessment(responses)
-      navigate('/results', { state: { assessment: result.assessment, scoring: result.scoring } })
+      const result = await api.submitAssessment({
+        organization_name: orgProfile.organization_name,
+        organization_type: orgProfile.organization_type,
+        employee_count: orgProfile.employee_count,
+        responses
+      })
+
+      // Clear localStorage on successful submission
+      localStorage.removeItem('assessment_profile')
+      localStorage.removeItem('assessment_responses')
+      localStorage.removeItem('assessment_category')
+
+      navigate(`/results/${result.id}`, { state: { scores: result.scores } })
     } catch (err) {
       if (err.status === 401) {
         navigate('/login')
@@ -104,18 +145,34 @@ function Assessment() {
     }
   }
 
-  if (isLoading) {
+  // Profile step
+  if (step === 'profile') {
     return (
       <div className="page-container page-centered">
-        <div className="loading-spinner">
-          <div className="spinner"></div>
-          <p>Loading assessment...</p>
+        <div className="assessment-card profile-card">
+          <OrganizationProfileForm
+            onSubmit={handleProfileSubmit}
+            initialValues={orgProfile || {}}
+          />
         </div>
       </div>
     )
   }
 
-  if (error && questions.length === 0) {
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="page-container page-centered">
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+          <p>Loading assessment questions...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state with no categories
+  if (error && categories.length === 0) {
     return (
       <div className="page-container page-centered">
         <div className="error-card">
@@ -128,118 +185,82 @@ function Assessment() {
     )
   }
 
+  const isLastCategory = currentCategoryIndex === categories.length - 1
+  const canProceed = isCategoryComplete(currentCategory)
+
   return (
-    <div className="page-container page-centered">
-      <div className="assessment-card">
-        {/* Progress Bar */}
-        <div className="progress-container">
-          <div className="progress-bar">
-            <div className="progress-fill" style={{ width: `${progress}%` }} />
+    <div className="page-container">
+      <div className="assessment-container">
+        {/* Category Navigation */}
+        <CategoryNav
+          categories={categories}
+          currentCategory={currentCategory?.key}
+          completedCategories={completedCategories}
+          onCategoryClick={handleCategoryClick}
+        />
+
+        {/* Questions Section */}
+        <div className="questions-section">
+          <div className="category-header">
+            <h2>{currentCategory?.name}</h2>
+            <span className="question-count">
+              {currentQuestions.length} questions
+            </span>
           </div>
-          <div className="progress-text">
-            Question {currentStep + 1} of {totalQuestions}
-          </div>
-        </div>
 
-        {/* Question */}
-        {currentQuestion && (
-          <div className="question-section">
-            <h2 className="question-text">{currentQuestion.text}</h2>
-
-            {/* Dropdown for single-select */}
-            {currentQuestion.type === 'dropdown' && (
-              <div className="form-group">
-                <select
-                  value={responses[currentQuestion.id] || ''}
-                  onChange={(e) => handleDropdownChange(currentQuestion.id, e.target.value)}
-                  className="question-select"
-                >
-                  <option value="">Select an option...</option>
-                  {currentQuestion.options.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Checkboxes for multi-select */}
-            {currentQuestion.type === 'multiselect' && (
-              <div className="checkbox-group">
-                {currentQuestion.options.map(option => (
-                  <label key={option.value} className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={(responses[currentQuestion.id] || []).includes(option.value)}
-                      onChange={(e) => handleCheckboxChange(currentQuestion.id, option.value, e.target.checked)}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Error Message */}
-        {error && (
-          <div className="alert alert-error" style={{ marginTop: '20px' }}>
-            {error}
-          </div>
-        )}
-
-        {/* Navigation Buttons */}
-        <div className="navigation-buttons">
-          <button
-            onClick={handlePrevious}
-            disabled={currentStep === 0}
-            className="btn btn-secondary"
-          >
-            Previous
-          </button>
-
-          {currentStep < totalQuestions - 1 ? (
-            <button
-              onClick={handleNext}
-              disabled={!isCurrentQuestionAnswered()}
-              className="btn btn-primary"
-            >
-              Next
-            </button>
-          ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={!areAllQuestionsAnswered() || isSubmitting}
-              className="btn btn-primary"
-            >
-              {isSubmitting ? (
-                <>
-                  <span className="btn-spinner"></span>
-                  Submitting...
-                </>
-              ) : (
-                'Submit Assessment'
-              )}
-            </button>
-          )}
-        </div>
-
-        {/* Question Dots Navigation */}
-        <div className="question-dots">
-          {questions.map((q, index) => {
-            const isAnswered = q.type === 'multiselect'
-              ? (responses[q.id] || []).length > 0
-              : responses[q.id] !== ''
-            return (
-              <button
-                key={q.id}
-                onClick={() => setCurrentStep(index)}
-                className={`dot ${index === currentStep ? 'active' : ''} ${isAnswered ? 'answered' : ''}`}
-                title={`Question ${index + 1}`}
+          <div className="questions-list">
+            {currentQuestions.map(question => (
+              <QuestionCard
+                key={question.id}
+                question={question}
+                response={responses[question.id]}
+                onChange={(value) => handleResponseChange(question.id, value)}
               />
-            )
-          })}
+            ))}
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="alert alert-error" style={{ marginTop: '20px' }}>
+              {error}
+            </div>
+          )}
+
+          {/* Navigation Buttons */}
+          <div className="navigation-buttons">
+            <button
+              onClick={handlePreviousCategory}
+              disabled={currentCategoryIndex === 0}
+              className="btn btn-secondary"
+            >
+              Previous Category
+            </button>
+
+            {!isLastCategory ? (
+              <button
+                onClick={handleNextCategory}
+                disabled={!canProceed}
+                className="btn btn-primary"
+              >
+                Next Category
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={!areAllQuestionsAnswered() || isSubmitting}
+                className="btn btn-primary btn-submit"
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="btn-spinner"></span>
+                    Submitting...
+                  </>
+                ) : (
+                  'Submit Assessment'
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

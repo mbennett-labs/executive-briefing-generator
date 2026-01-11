@@ -377,7 +377,7 @@
         "npm run typecheck passes"
       ],
       "priority": 26,
-      "passes": false,
+      "passes": true,
       "notes": "org_type options: Hospital, Clinic, Insurance, Pharmacy, Research, Other"
     },
     {
@@ -393,7 +393,7 @@
         "npm run typecheck passes"
       ],
       "priority": 27,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -409,7 +409,7 @@
         "npm run typecheck passes"
       ],
       "priority": 28,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -427,7 +427,7 @@
         "npm run typecheck passes"
       ],
       "priority": 29,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -444,7 +444,7 @@
         "npm run typecheck passes"
       ],
       "priority": 30,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
