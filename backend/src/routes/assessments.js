@@ -159,20 +159,32 @@ router.get('/:id', requireAuth, async (req, res) => {
 
     // Verify assessment belongs to authenticated user
     if (assessment.user_id !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(404).json({ error: 'Assessment not found' });
     }
 
-    // Calculate full scoring details from stored responses
-    const scoreResult = calculateRiskScore(assessment.responses);
+    // Get stored scores or recalculate
+    let category_scores = assessment.scores;
+    let overall_score = assessment.overall_score || assessment.risk_score;
+
+    // If scores not stored, recalculate from responses
+    if (!category_scores && assessment.responses) {
+      const questions = await db('questions').select('*').orderBy('order_index', 'asc');
+      const calculated = calculateScores(assessment.responses, questions);
+      category_scores = calculated.category_scores;
+      overall_score = calculated.overall_score;
+    }
+
+    const riskLevel = getRiskLevel(overall_score);
+    const percentile = getPercentile(overall_score);
 
     res.status(200).json({
       assessment: Assessment.toPublic(assessment),
-      scoring: {
-        totalScore: scoreResult.totalScore,
-        riskLevel: scoreResult.riskLevel,
-        riskColor: scoreResult.riskColor,
-        urgency: scoreResult.urgency,
-        weakestAreas: scoreResult.weakestAreas
+      scores: {
+        category_scores,
+        overall_score,
+        risk_level: riskLevel.level,
+        risk_color: riskLevel.color,
+        percentile
       }
     });
   } catch (error) {
