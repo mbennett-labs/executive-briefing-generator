@@ -36,6 +36,10 @@ function Results() {
   const [reportId, setReportId] = useState(null)
   const [reportError, setReportError] = useState('')
 
+  // Email state
+  const [isEmailing, setIsEmailing] = useState(false)
+  const [emailSuccess, setEmailSuccess] = useState('')
+
   // Get scores from navigation state if available
   const stateScores = location.state?.scores
 
@@ -142,6 +146,26 @@ function Results() {
       }
     } finally {
       setIsGenerating(false)
+    }
+  }
+
+  // Handle email report
+  const handleEmailReport = async () => {
+    setIsEmailing(true)
+    setReportError('')
+    setEmailSuccess('')
+
+    try {
+      const result = await api.emailReport(assessmentId)
+      setEmailSuccess(`Report sent to ${result.email}! Check your inbox.`)
+    } catch (err) {
+      if (err.status === 401) {
+        navigate('/login')
+      } else {
+        setReportError(err.data?.error || 'Failed to send email. Please try again.')
+      }
+    } finally {
+      setIsEmailing(false)
     }
   }
 
@@ -260,11 +284,34 @@ function Results() {
             <div className="report-ready">
               <div className="report-ready-icon">&#10003;</div>
               <p>Your executive briefing is ready!</p>
-              <DownloadButton
-                assessmentId={assessmentId}
-                label="Download Executive Briefing (PDF)"
-                className="btn-large"
-              />
+
+              {emailSuccess && (
+                <div className="alert alert-success" style={{ marginBottom: '16px' }}>
+                  {emailSuccess}
+                </div>
+              )}
+
+              <div className="report-actions">
+                <DownloadButton
+                  assessmentId={assessmentId}
+                  label="Download PDF"
+                  className="btn-large"
+                />
+                <button
+                  onClick={handleEmailReport}
+                  disabled={isEmailing}
+                  className="btn btn-secondary btn-large"
+                >
+                  {isEmailing ? (
+                    <>
+                      <span className="btn-spinner"></span>
+                      Sending...
+                    </>
+                  ) : (
+                    'Email Report'
+                  )}
+                </button>
+              </div>
             </div>
           ) : (
             <button
