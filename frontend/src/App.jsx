@@ -60,7 +60,7 @@ function App() {
         }
       />
       <Route
-        path="/results"
+        path="/results/:assessmentId"
         element={
           <ProtectedRoute>
             <Results />
