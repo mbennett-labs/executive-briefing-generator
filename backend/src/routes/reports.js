@@ -1,18 +1,20 @@
 /**
  * Reports Routes
- * Story-015: Generate report endpoint
- * Story-016: Email report delivery
+ * Handles AI-generated executive briefing reports
  */
 
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const router = express.Router();
+const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const Assessment = require('../models/assessment');
 const Report = require('../models/report');
 const User = require('../models/user');
-const { calculateRiskScore } = require('../services/scoring');
+const { calculateScores, getRiskLevel } = require('../utils/scoring');
+const { getPercentile } = require('../data/benchmarks');
+const { generateReport } = require('../utils/claude');
 const { generateReportContent } = require('../services/reportContent');
 const { generatePDF, generatePDFBuffer } = require('../services/pdfGenerator');
 const { sendReportEmail } = require('../services/emailService');
@@ -24,8 +26,87 @@ if (!fs.existsSync(reportsDir)) {
 }
 
 /**
+ * POST /api/reports/:assessmentId/generate
+ * Generate an AI-powered executive briefing using Claude
+ */
+router.post('/:assessmentId/generate', requireAuth, async (req, res) => {
+  try {
+    const assessmentId = parseInt(req.params.assessmentId, 10);
+
+    if (isNaN(assessmentId)) {
+      return res.status(400).json({ error: 'Invalid assessment ID' });
+    }
+
+    // Find the assessment
+    const assessment = await Assessment.findById(assessmentId);
+
+    if (!assessment) {
+      return res.status(404).json({ error: 'Assessment not found' });
+    }
+
+    // Verify ownership
+    if (assessment.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Get questions for scoring context
+    const questions = await db('questions').select('*').orderBy('order_index', 'asc');
+
+    // Get or calculate scores
+    let category_scores = assessment.scores;
+    let overall_score = assessment.overall_score || assessment.risk_score;
+
+    if (!category_scores && assessment.responses) {
+      const calculated = calculateScores(assessment.responses, questions);
+      category_scores = calculated.category_scores;
+      overall_score = calculated.overall_score;
+    }
+
+    const risk_level = getRiskLevel(overall_score);
+    const percentile = getPercentile(overall_score);
+
+    // Prepare data for Claude
+    const assessmentData = {
+      org_name: assessment.organization_name || 'Healthcare Organization',
+      org_type: assessment.organization_type || 'Hospital',
+      employee_count: assessment.employee_count || '1000-5000',
+      responses: assessment.responses,
+      questions,
+      category_scores: category_scores || {},
+      overall_score,
+      percentile,
+      risk_level
+    };
+
+    // Generate report using Claude
+    const result = await generateReport(assessmentData);
+
+    if (!result.success) {
+      throw new Error('Report generation failed');
+    }
+
+    // Save report to database
+    const report = await Report.create({
+      assessment_id: assessmentId,
+      content: result.report,
+      pdf_url: null
+    });
+
+    res.status(201).json({
+      id: report.id,
+      content: result.report,
+      usage: result.usage
+    });
+
+  } catch (error) {
+    console.error('Report generation error:', error);
+    res.status(500).json({ error: error.message || 'Failed to generate report' });
+  }
+});
+
+/**
  * POST /api/reports/:assessmentId
- * Generate a PDF report for an assessment
+ * Generate a PDF report for an assessment (legacy endpoint)
  */
 router.post('/:assessmentId', requireAuth, async (req, res) => {
   try {

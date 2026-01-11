@@ -32,10 +32,12 @@ const Report = {
   /**
    * Create a new report record
    */
-  async create({ assessment_id, pdf_url }) {
+  async create({ assessment_id, content, pdf_url, pdf_path }) {
     const [id] = await db('reports').insert({
       assessment_id,
+      content: content ? JSON.stringify(content) : null,
       pdf_url,
+      pdf_path,
       email_sent: false,
       created_at: new Date().toISOString()
     });
@@ -73,7 +75,9 @@ const Report = {
     return {
       id: report.id,
       assessment_id: report.assessment_id,
+      content: report.content ? (typeof report.content === 'string' ? JSON.parse(report.content) : report.content) : null,
       pdf_url: report.pdf_url,
+      pdf_path: report.pdf_path,
       email_sent: !!report.email_sent,
       created_at: report.created_at
     };
