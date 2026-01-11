@@ -1550,6 +1550,201 @@ body {
   }
 }
 
+/* Mobile styles for 375px viewport */
+@media (max-width: 480px) {
+  /* Touch-friendly buttons (min 44px height) */
+  .btn {
+    min-height: 44px;
+    padding: 12px 20px;
+    font-size: 15px;
+  }
+
+  .btn-large {
+    min-height: 52px;
+    padding: 14px 24px;
+    font-size: 16px;
+  }
+
+  /* Navigation */
+  .navbar {
+    padding: 12px 16px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .logo-text {
+    font-size: 14px;
+  }
+
+  /* Page container */
+  .page-container {
+    padding: 16px 12px;
+  }
+
+  .page-header h1 {
+    font-size: 20px;
+  }
+
+  .page-header p {
+    font-size: 14px;
+  }
+
+  /* Assessment form */
+  .assessment-container {
+    gap: 16px;
+  }
+
+  .questions-section {
+    padding: 20px 16px;
+  }
+
+  .category-header h2 {
+    font-size: 18px;
+  }
+
+  .question-card {
+    padding: 16px;
+  }
+
+  .question-text {
+    font-size: 15px;
+  }
+
+  .radio-label,
+  .checkbox-label {
+    padding: 14px 12px;
+    min-height: 44px;
+  }
+
+  .radio-text,
+  .checkbox-text {
+    font-size: 14px;
+  }
+
+  /* Category nav mobile */
+  .category-nav {
+    margin-bottom: 16px;
+  }
+
+  .category-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .category-tab {
+    flex-direction: column;
+    padding: 10px 8px;
+    min-width: auto;
+    font-size: 11px;
+  }
+
+  .category-name {
+    font-size: 10px;
+    text-align: center;
+  }
+
+  .category-number {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+
+  /* Results page */
+  .results-container {
+    padding: 24px 16px;
+  }
+
+  .results-title {
+    font-size: 20px;
+  }
+
+  .score-value {
+    font-size: 48px;
+  }
+
+  .percentile-value {
+    font-size: 28px;
+  }
+
+  .category-scores-grid {
+    gap: 12px;
+  }
+
+  .category-score-card {
+    padding: 16px;
+  }
+
+  .category-score-header h3 {
+    font-size: 13px;
+  }
+
+  .category-score-value span:first-child {
+    font-size: 20px;
+  }
+
+  /* Report section */
+  .report-generation-section {
+    padding: 24px 16px;
+  }
+
+  .report-generation-section h2 {
+    font-size: 20px;
+  }
+
+  .report-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .report-actions .btn {
+    width: 100%;
+  }
+
+  /* Dashboard */
+  .dashboard-card {
+    padding: 20px 16px;
+  }
+
+  /* Auth forms */
+  .auth-card {
+    padding: 24px 16px;
+    margin: 16px;
+  }
+
+  .form-group label {
+    font-size: 14px;
+  }
+
+  .form-group input,
+  .form-group select {
+    min-height: 44px;
+    padding: 12px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  /* Error boundary */
+  .error-boundary-content {
+    padding: 32px 20px;
+  }
+
+  .error-boundary-content h1 {
+    font-size: 22px;
+  }
+
+  .error-boundary-actions {
+    flex-direction: column;
+  }
+
+  .error-boundary-actions .btn {
+    width: 100%;
+  }
+}
+
 /* ================================
    LANDING PAGE
 ================================ */
