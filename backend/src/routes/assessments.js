@@ -118,18 +118,22 @@ router.post('/', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/assessments - Get user's assessments
+// GET /api/assessments - Get user's assessment history
 router.get('/', requireAuth, async (req, res) => {
   try {
     const assessments = await Assessment.findByUserId(req.user.id);
 
     // Return assessments with summary info (ordered by created_at desc from model)
-    const summaries = assessments.map(a => ({
-      id: a.id,
-      risk_score: a.risk_score,
-      risk_level: a.risk_level,
-      created_at: a.created_at
-    }));
+    const summaries = assessments.map(a => {
+      const riskLevel = getRiskLevel(a.overall_score || a.risk_score);
+      return {
+        id: a.id,
+        organization_name: a.organization_name,
+        overall_score: a.overall_score || a.risk_score,
+        risk_level: riskLevel.level,
+        created_at: a.created_at
+      };
+    });
 
     res.status(200).json({ assessments: summaries });
   } catch (error) {
