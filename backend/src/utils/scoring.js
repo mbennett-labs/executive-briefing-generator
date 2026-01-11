@@ -16,6 +16,36 @@ const CATEGORY_WEIGHTS = {
   quantum_readiness: 0.15      // 15%
 };
 
+// Risk level thresholds
+const RISK_LEVELS = {
+  CRITICAL: { min: 0, max: 30, level: 'Critical', color: 'red' },
+  HIGH: { min: 31, max: 50, level: 'High', color: 'orange' },
+  MODERATE: { min: 51, max: 70, level: 'Moderate', color: 'yellow' },
+  LOW: { min: 71, max: 85, level: 'Low', color: 'lightgreen' },
+  PREPARED: { min: 86, max: 100, level: 'Prepared', color: 'green' }
+};
+
+/**
+ * Get risk level from score
+ * @param {number} score - Score from 0-100
+ * @returns {object} Object with level (string) and color (string)
+ */
+function getRiskLevel(score) {
+  if (score <= RISK_LEVELS.CRITICAL.max) {
+    return { level: RISK_LEVELS.CRITICAL.level, color: RISK_LEVELS.CRITICAL.color };
+  }
+  if (score <= RISK_LEVELS.HIGH.max) {
+    return { level: RISK_LEVELS.HIGH.level, color: RISK_LEVELS.HIGH.color };
+  }
+  if (score <= RISK_LEVELS.MODERATE.max) {
+    return { level: RISK_LEVELS.MODERATE.level, color: RISK_LEVELS.MODERATE.color };
+  }
+  if (score <= RISK_LEVELS.LOW.max) {
+    return { level: RISK_LEVELS.LOW.level, color: RISK_LEVELS.LOW.color };
+  }
+  return { level: RISK_LEVELS.PREPARED.level, color: RISK_LEVELS.PREPARED.color };
+}
+
 // Scoring mappings for different answer types
 // For range/radio questions, later options typically indicate better security posture
 // For multi-select, fewer selections of sensitive data types = better score
@@ -172,9 +202,11 @@ function calculateScores(responses, questions) {
 
 module.exports = {
   calculateScores,
+  getRiskLevel,
   scoreQuestion,
   scoreMultiSelect,
   scoreRange,
   scoreYesNo,
-  CATEGORY_WEIGHTS
+  CATEGORY_WEIGHTS,
+  RISK_LEVELS
 };
