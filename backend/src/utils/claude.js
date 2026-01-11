@@ -2,25 +2,15 @@
  * Claude API Integration
  *
  * Utility for calling Claude API to generate executive briefing reports.
- * Uses the Anthropic SDK with claude-3-5-sonnet model.
+ * Uses native fetch for reliable HTTP requests.
  */
 
-const Anthropic = require('@anthropic-ai/sdk');
 const { generatePrompt } = require('../prompts/executive-briefing');
 
-// Initialize Anthropic client (uses ANTHROPIC_API_KEY env var by default)
-let anthropicClient = null;
-
-function getClient() {
-  if (!anthropicClient) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error('ANTHROPIC_API_KEY environment variable is required');
-    }
-    anthropicClient = new Anthropic({ apiKey });
-  }
-  return anthropicClient;
-}
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+const ANTHROPIC_VERSION = '2023-06-01';
+const MODEL = 'claude-sonnet-4-20250514';
+const MAX_TOKENS = 3000;  // Reduced from 8192 to avoid network issues with large requests
 
 /**
  * Generate an executive briefing report using Claude
@@ -38,25 +28,50 @@ function getClient() {
  * @returns {Promise<object>} Generated report sections as JSON
  */
 async function generateReport(assessmentData) {
-  const client = getClient();
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error('ANTHROPIC_API_KEY environment variable is required');
+  }
 
   // Generate the prompt
   const prompt = generatePrompt(assessmentData);
 
   try {
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 8192,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
+    const response = await fetch(ANTHROPIC_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': ANTHROPIC_VERSION
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: MAX_TOKENS,
+        messages: [{ role: 'user', content: prompt }]
+      })
     });
 
+    const data = await response.json();
+
+    // Handle API errors
+    if (!response.ok) {
+      console.error('Claude API error response:', data);
+
+      if (response.status === 401) {
+        throw new Error('Invalid ANTHROPIC_API_KEY');
+      }
+      if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      if (response.status === 500) {
+        throw new Error('Claude API service error. Please try again.');
+      }
+
+      throw new Error(data.error?.message || `API error: ${response.status}`);
+    }
+
     // Extract the text content
-    const textContent = response.content.find(c => c.type === 'text');
+    const textContent = data.content?.find(c => c.type === 'text');
     if (!textContent) {
       throw new Error('No text content in Claude response');
     }
@@ -68,22 +83,16 @@ async function generateReport(assessmentData) {
       success: true,
       report: reportContent,
       usage: {
-        input_tokens: response.usage?.input_tokens,
-        output_tokens: response.usage?.output_tokens
+        input_tokens: data.usage?.input_tokens,
+        output_tokens: data.usage?.output_tokens
       }
     };
   } catch (error) {
     console.error('Claude API error:', error);
 
-    // Handle specific error types
-    if (error.status === 401) {
-      throw new Error('Invalid ANTHROPIC_API_KEY');
-    }
-    if (error.status === 429) {
-      throw new Error('Rate limit exceeded. Please try again later.');
-    }
-    if (error.status === 500) {
-      throw new Error('Claude API service error. Please try again.');
+    // Re-throw with context if it's a network error
+    if (error.cause) {
+      throw new Error(`Report generation failed: Network error - ${error.cause.message}`);
     }
 
     throw new Error(`Report generation failed: ${error.message}`);

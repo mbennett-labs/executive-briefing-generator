@@ -63,23 +63,36 @@ router.post('/:assessmentId/generate', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Access denied', timestamp: Date.now() });
     }
 
+    // Parse JSON fields from database (SQLite stores as strings)
+    const responses = typeof assessment.responses === 'string'
+      ? JSON.parse(assessment.responses)
+      : assessment.responses || {};
+
     // Log assessment details
     console.log('[Report Generation] Assessment loaded', {
       assessmentId,
       organization_name: assessment.organization_name,
-      responsesCount: assessment.responses ? Object.keys(assessment.responses).length : 0
+      responsesCount: Object.keys(responses).length
     });
 
     // Get questions for scoring context
     const questions = await db('questions').select('*').orderBy('order_index', 'asc');
     console.log('[Report Generation] Questions loaded:', questions.length);
 
-    // Get or calculate scores
+    // Get or calculate scores - parse if stored as JSON string
     let category_scores = assessment.scores;
+    if (typeof category_scores === 'string') {
+      try {
+        category_scores = JSON.parse(category_scores);
+      } catch (e) {
+        category_scores = null;
+      }
+    }
+
     let overall_score = assessment.overall_score || assessment.risk_score;
 
-    if (!category_scores && assessment.responses) {
-      const calculated = calculateScores(assessment.responses, questions);
+    if (!category_scores && responses) {
+      const calculated = calculateScores(responses, questions);
       category_scores = calculated.category_scores;
       overall_score = calculated.overall_score;
     }
@@ -92,7 +105,7 @@ router.post('/:assessmentId/generate', requireAuth, async (req, res) => {
       org_name: assessment.organization_name || 'Healthcare Organization',
       org_type: assessment.organization_type || 'Hospital',
       employee_count: assessment.employee_count || '1000-5000',
-      responses: assessment.responses,
+      responses,
       questions,
       category_scores: category_scores || {},
       overall_score,
