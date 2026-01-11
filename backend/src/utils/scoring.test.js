@@ -6,11 +6,13 @@
 const assert = require('assert');
 const {
   calculateScores,
+  getRiskLevel,
   scoreQuestion,
   scoreMultiSelect,
   scoreRange,
   scoreYesNo,
-  CATEGORY_WEIGHTS
+  CATEGORY_WEIGHTS,
+  RISK_LEVELS
 } = require('./scoring');
 
 console.log('Running scoring utility tests...\n');
@@ -123,6 +125,41 @@ assert.ok('category_scores' in bestResult, 'Result should have category_scores')
 assert.ok('overall_score' in bestResult, 'Result should have overall_score');
 assert.ok(typeof bestResult.category_scores === 'object', 'category_scores should be object');
 assert.ok(typeof bestResult.overall_score === 'number', 'overall_score should be number');
+console.log('  PASS\n');
+
+// Test 9: getRiskLevel function - Critical
+console.log('Test 9: getRiskLevel function - Critical (0-30)');
+assert.deepStrictEqual(getRiskLevel(0), { level: 'Critical', color: 'red' });
+assert.deepStrictEqual(getRiskLevel(15), { level: 'Critical', color: 'red' });
+assert.deepStrictEqual(getRiskLevel(30), { level: 'Critical', color: 'red' });
+console.log('  PASS\n');
+
+// Test 10: getRiskLevel function - High
+console.log('Test 10: getRiskLevel function - High (31-50)');
+assert.deepStrictEqual(getRiskLevel(31), { level: 'High', color: 'orange' });
+assert.deepStrictEqual(getRiskLevel(40), { level: 'High', color: 'orange' });
+assert.deepStrictEqual(getRiskLevel(50), { level: 'High', color: 'orange' });
+console.log('  PASS\n');
+
+// Test 11: getRiskLevel function - Moderate
+console.log('Test 11: getRiskLevel function - Moderate (51-70)');
+assert.deepStrictEqual(getRiskLevel(51), { level: 'Moderate', color: 'yellow' });
+assert.deepStrictEqual(getRiskLevel(60), { level: 'Moderate', color: 'yellow' });
+assert.deepStrictEqual(getRiskLevel(70), { level: 'Moderate', color: 'yellow' });
+console.log('  PASS\n');
+
+// Test 12: getRiskLevel function - Low
+console.log('Test 12: getRiskLevel function - Low (71-85)');
+assert.deepStrictEqual(getRiskLevel(71), { level: 'Low', color: 'lightgreen' });
+assert.deepStrictEqual(getRiskLevel(78), { level: 'Low', color: 'lightgreen' });
+assert.deepStrictEqual(getRiskLevel(85), { level: 'Low', color: 'lightgreen' });
+console.log('  PASS\n');
+
+// Test 13: getRiskLevel function - Prepared
+console.log('Test 13: getRiskLevel function - Prepared (86-100)');
+assert.deepStrictEqual(getRiskLevel(86), { level: 'Prepared', color: 'green' });
+assert.deepStrictEqual(getRiskLevel(93), { level: 'Prepared', color: 'green' });
+assert.deepStrictEqual(getRiskLevel(100), { level: 'Prepared', color: 'green' });
 console.log('  PASS\n');
 
 console.log('All tests passed!');
