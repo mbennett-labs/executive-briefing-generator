@@ -22,19 +22,19 @@ function Landing() {
         <div className="hero-container">
           <div className="hero-content">
             <h1 className="hero-title">
-              Is Your Organization Ready for the
-              <span className="highlight"> Quantum Threat?</span>
+              48-Question Deep Dive Into Your
+              <span className="highlight"> Quantum Risk Exposure</span>
             </h1>
             <p className="hero-subtitle">
-              Get a personalized executive briefing that reveals your quantum computing
-              risk exposure and provides actionable recommendations to protect your
-              organization's sensitive data.
+              Complete our comprehensive assessment across 6 critical categories
+              and receive an AI-powered personalized executive briefing with
+              actionable recommendations tailored to your organization.
             </p>
             <div className="hero-cta">
               <Link to="/register" className="btn btn-hero">
                 Start Your Assessment
               </Link>
-              <p className="hero-note">Takes only 5 minutes to complete</p>
+              <p className="hero-note">LLM-powered personalized analysis</p>
             </div>
           </div>
           <div className="hero-visual">
@@ -111,10 +111,10 @@ function Landing() {
                   <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                 </svg>
               </div>
-              <h3>Answer Questions</h3>
+              <h3>Answer 48 Questions</h3>
               <p>
-                Complete our 11-question assessment covering your organization's
-                data practices, security posture, and regulatory requirements.
+                Complete our deep-dive assessment across 6 categories: data sensitivity,
+                encryption, compliance, vendor risk, incident response, and quantum readiness.
               </p>
             </div>
 
@@ -197,11 +197,11 @@ function Landing() {
               <span className="period">one-time</span>
             </div>
             <ul className="pricing-features">
-              <li>11-question risk assessment</li>
-              <li>Instant risk score calculation</li>
+              <li>48-question deep assessment across 6 categories</li>
+              <li>AI-powered personalized analysis</li>
               <li>8-page executive briefing PDF</li>
-              <li>Personalized recommendations</li>
-              <li>Cost projections based on your org size</li>
+              <li>Industry benchmark comparison</li>
+              <li>Prioritized remediation roadmap</li>
               <li>Email delivery of your report</li>
             </ul>
             <Link to="/register" className="btn btn-pricing">
