@@ -50,9 +50,9 @@ export const api = {
   getQuestions: () => request('/questions'),
 
   // Assessments endpoints
-  submitAssessment: (responses) => request('/assessments', {
+  submitAssessment: (data) => request('/assessments', {
     method: 'POST',
-    body: JSON.stringify({ responses })
+    body: JSON.stringify(data)
   }),
 
   getAssessments: () => request('/assessments'),

@@ -876,6 +876,432 @@ body {
   width: 100%;
 }
 
+/* Results Container */
+.results-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  padding: 40px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Percentile Section */
+.percentile-section {
+  margin-top: 24px;
+  padding: 20px;
+  background: #f0f7ff;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.percentile-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.percentile-value {
+  font-size: 36px;
+  font-weight: 700;
+  color: #4a90d9;
+}
+
+.percentile-label {
+  font-size: 14px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.percentile-text {
+  color: #555;
+  font-size: 14px;
+  text-align: center;
+  max-width: 400px;
+}
+
+/* Category Scores Section */
+.category-scores-section {
+  margin: 40px 0;
+}
+
+.category-scores-section h2 {
+  color: #1a1a2e;
+  font-size: 22px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.category-scores-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.category-score-card {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.category-score-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.category-score-header h3 {
+  font-size: 15px;
+  color: #333;
+  margin: 0;
+}
+
+.category-risk-badge {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  color: white;
+  font-weight: 600;
+}
+
+.category-score-bar {
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.category-score-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.category-score-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.category-score-value span:first-child {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.category-score-max {
+  font-size: 14px;
+  color: #888;
+}
+
+/* Assessment Container */
+.assessment-container {
+  display: flex;
+  gap: 30px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* Category Navigation */
+.category-nav {
+  width: 220px;
+  flex-shrink: 0;
+}
+
+.category-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.category-tab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.category-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.category-tab:not(:disabled):hover {
+  border-color: #4a90d9;
+  background: #f0f7ff;
+}
+
+.category-tab.active {
+  background: #4a90d9;
+  border-color: #4a90d9;
+  color: white;
+}
+
+.category-tab.completed {
+  background: #d4edda;
+  border-color: #28a745;
+}
+
+.category-tab.active.completed {
+  background: #4a90d9;
+  border-color: #4a90d9;
+}
+
+.category-number {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.category-tab.active .category-number {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.category-tab.completed .category-number {
+  background: #28a745;
+  color: white;
+}
+
+.category-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.checkmark {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.category-tab.active .checkmark {
+  color: white;
+}
+
+.category-progress {
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.category-progress .progress-text {
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+/* Questions Section */
+.questions-section {
+  flex: 1;
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.category-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.category-header h2 {
+  color: #1a1a2e;
+  font-size: 22px;
+  margin: 0;
+}
+
+.question-count {
+  color: #666;
+  font-size: 14px;
+}
+
+.questions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Question Card */
+.question-card {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 24px;
+  border: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.question-card.answered {
+  border-color: #28a745;
+  background: #f8fff9;
+}
+
+.question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.question-number {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.answered-badge {
+  font-size: 11px;
+  padding: 4px 10px;
+  background: #28a745;
+  color: white;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.question-text {
+  font-size: 16px;
+  color: #1a1a2e;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.question-input {
+  margin-top: 16px;
+}
+
+/* Radio Group */
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.radio-label:hover {
+  background: #f0f7ff;
+  border-color: #4a90d9;
+}
+
+.radio-label.selected {
+  background: #4a90d9;
+  border-color: #4a90d9;
+  color: white;
+}
+
+.radio-label input[type="radio"] {
+  display: none;
+}
+
+.radio-text {
+  font-size: 14px;
+}
+
+.yes-no-group {
+  flex-direction: row;
+  gap: 12px;
+}
+
+.yes-no-label {
+  flex: 1;
+  justify-content: center;
+  padding: 16px;
+  font-weight: 600;
+}
+
+/* Checkbox styles update */
+.checkbox-label.selected {
+  background: #4a90d9;
+  border-color: #4a90d9;
+  color: white;
+}
+
+.checkbox-label.selected input[type="checkbox"] {
+  accent-color: white;
+}
+
+/* Organization Profile Form */
+.profile-card {
+  max-width: 500px;
+}
+
+.org-profile-form h2 {
+  color: #1a1a2e;
+  margin-bottom: 8px;
+  font-size: 24px;
+}
+
+.form-description {
+  color: #666;
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+.input-error {
+  border-color: #e74c3c !important;
+}
+
+.btn-full {
+  width: 100%;
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .assessment-container {
+    flex-direction: column;
+  }
+
+  .category-nav {
+    width: 100%;
+  }
+
+  .category-tabs {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .category-tab {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .category-scores-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ================================
    RESPONSIVE STYLES
 ================================ */
