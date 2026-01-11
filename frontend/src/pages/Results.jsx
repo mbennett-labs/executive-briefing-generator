@@ -141,13 +141,32 @@ function Results() {
     setReportError('')
 
     try {
+      console.log('[Report Generation] Starting request for assessment:', assessmentId)
       const result = await api.generateReport(assessmentId)
-      setReportId(result.id || result.reportId)
+      console.log('[Report Generation] Response received:', result)
+
+      // Check for report ID in response
+      const newReportId = result.id || result.reportId
+      if (newReportId) {
+        console.log('[Report Generation] Success, reportId:', newReportId)
+        setReportId(newReportId)
+      } else {
+        console.error('[Report Generation] No report ID in response:', result)
+        setReportError('Report generated but no ID returned. Please try again.')
+      }
     } catch (err) {
+      console.error('[Report Generation] Error:', err)
+      console.error('[Report Generation] Error details:', {
+        message: err.message,
+        status: err.status,
+        data: err.data
+      })
+
       if (err.status === 401) {
         navigate('/login')
       } else {
-        setReportError(err.data?.error || 'Failed to generate report. Please try again.')
+        const errorMessage = err.data?.error || err.message || 'Failed to generate report. Please try again.'
+        setReportError(errorMessage)
       }
     } finally {
       setIsGenerating(false)

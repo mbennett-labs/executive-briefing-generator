@@ -21,10 +21,35 @@ async function request(endpoint, options = {}) {
     config.headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, config);
-  const data = await response.json();
+  console.log(`[API] ${options.method || 'GET'} ${endpoint}`);
+
+  let response;
+  try {
+    response = await fetch(url, config);
+  } catch (fetchError) {
+    console.error('[API] Network error:', fetchError);
+    const error = new Error('Network error: ' + fetchError.message);
+    error.status = 0;
+    error.data = { error: 'Network error' };
+    throw error;
+  }
+
+  console.log(`[API] Response status: ${response.status}`);
+
+  let data;
+  try {
+    data = await response.json();
+    console.log('[API] Response data:', data);
+  } catch (parseError) {
+    console.error('[API] JSON parse error:', parseError);
+    const error = new Error('Invalid response format');
+    error.status = response.status;
+    error.data = { error: 'Invalid JSON response' };
+    throw error;
+  }
 
   if (!response.ok) {
+    console.error('[API] Error response:', { status: response.status, data });
     const error = new Error(data.error || 'An error occurred');
     error.status = response.status;
     error.data = data;
