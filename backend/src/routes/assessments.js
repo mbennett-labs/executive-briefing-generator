@@ -1,26 +1,41 @@
 /**
  * Assessments Routes
- * Story-006: Submit assessment endpoint
- * Story-007: Get user assessments endpoint
+ * Handles 48-question post-quantum security assessments
  */
 
 const express = require('express');
 const router = express.Router();
+const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const Assessment = require('../models/assessment');
-const { calculateRiskScore } = require('../services/scoring');
-const { questions } = require('../data/questions');
+const { calculateScores, getRiskLevel } = require('../utils/scoring');
+const { getPercentile, getBenchmarkComparison } = require('../data/benchmarks');
 
 /**
- * Validate that all 11 questions are answered
- * @param {object} responses - Response object
+ * Validate assessment submission
+ * @param {object} body - Request body
+ * @param {Array} questions - Questions from database
  * @returns {object} { valid: boolean, errors: string[] }
  */
-function validateResponses(responses) {
+function validateSubmission(body, questions) {
   const errors = [];
+  const { organization_name, organization_type, employee_count, responses } = body;
 
+  // Validate organization details
+  if (!organization_name || typeof organization_name !== 'string') {
+    errors.push('organization_name is required');
+  }
+  if (!organization_type || typeof organization_type !== 'string') {
+    errors.push('organization_type is required');
+  }
+  if (!employee_count || typeof employee_count !== 'string') {
+    errors.push('employee_count is required');
+  }
+
+  // Validate responses object
   if (!responses || typeof responses !== 'object') {
-    return { valid: false, errors: ['Responses must be a valid object'] };
+    errors.push('responses must be a valid object');
+    return { valid: false, errors };
   }
 
   // Check each question has a response
@@ -33,31 +48,9 @@ function validateResponses(responses) {
     }
 
     // Validate response format based on question type
-    if (question.type === 'multiselect') {
+    if (question.answer_type === 'multi-select') {
       if (!Array.isArray(response)) {
         errors.push(`Question ${question.id} must be an array`);
-        continue;
-      }
-      if (response.length === 0) {
-        errors.push(`Question ${question.id} requires at least one selection`);
-        continue;
-      }
-      // Validate each selection is a valid option
-      const validValues = question.options.map(o => o.value);
-      for (const value of response) {
-        if (!validValues.includes(value)) {
-          errors.push(`Question ${question.id} has invalid selection: ${value}`);
-        }
-      }
-    } else {
-      // Dropdown - validate single value
-      if (typeof response !== 'string') {
-        errors.push(`Question ${question.id} must be a string`);
-        continue;
-      }
-      const validValues = question.options.map(o => o.value);
-      if (!validValues.includes(response)) {
-        errors.push(`Question ${question.id} has invalid value: ${response}`);
       }
     }
   }
@@ -71,10 +64,13 @@ function validateResponses(responses) {
 // POST /api/assessments - Submit a new assessment
 router.post('/', requireAuth, async (req, res) => {
   try {
-    const { responses } = req.body;
+    const { organization_name, organization_type, employee_count, responses } = req.body;
 
-    // Validate all 11 questions are answered
-    const validation = validateResponses(responses);
+    // Fetch questions from database
+    const questions = await db('questions').select('*').orderBy('order_index', 'asc');
+
+    // Validate submission
+    const validation = validateSubmission(req.body, questions);
     if (!validation.valid) {
       return res.status(400).json({
         error: 'Validation failed',
@@ -82,26 +78,38 @@ router.post('/', requireAuth, async (req, res) => {
       });
     }
 
-    // Calculate risk score
-    const scoreResult = calculateRiskScore(responses);
+    // Calculate scores using the new scoring utility
+    const { category_scores, overall_score } = calculateScores(responses, questions);
+
+    // Get risk level
+    const riskLevel = getRiskLevel(overall_score);
+
+    // Get percentile and benchmark comparison
+    const percentile = getPercentile(overall_score);
+    const benchmarks = getBenchmarkComparison(category_scores, overall_score);
 
     // Save assessment to database
     const assessment = await Assessment.create({
       user_id: req.user.id,
+      organization_name,
+      organization_type,
+      employee_count,
       responses,
-      risk_score: scoreResult.totalScore,
-      risk_level: scoreResult.riskLevel
+      scores: category_scores,
+      overall_score,
+      risk_level: riskLevel.level
     });
 
     // Return assessment with full score details
     res.status(201).json({
-      assessment: Assessment.toPublic(assessment),
-      scoring: {
-        totalScore: scoreResult.totalScore,
-        riskLevel: scoreResult.riskLevel,
-        riskColor: scoreResult.riskColor,
-        urgency: scoreResult.urgency,
-        weakestAreas: scoreResult.weakestAreas
+      id: assessment.id,
+      scores: {
+        category_scores,
+        overall_score,
+        risk_level: riskLevel.level,
+        risk_color: riskLevel.color,
+        percentile,
+        benchmarks
       }
     });
   } catch (error) {
