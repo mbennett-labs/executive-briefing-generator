@@ -2,8 +2,14 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 
-// Color mapping for risk levels
+// Color mapping for risk levels (matching backend scoring.js)
 const RISK_COLORS = {
+  Critical: '#dc3545',
+  High: '#fd7e14',
+  Moderate: '#ffc107',
+  Low: '#28a745',
+  Prepared: '#17a2b8',
+  // Legacy uppercase support
   LOW: '#28a745',
   MODERATE: '#ffc107',
   HIGH: '#fd7e14',
@@ -40,15 +46,8 @@ function Dashboard() {
     }
   }
 
-  const handleViewAssessment = async (assessmentId) => {
-    try {
-      setLoading(true)
-      const data = await api.getAssessment(assessmentId)
-      navigate('/results', { state: data })
-    } catch (err) {
-      setError('Failed to load assessment details. Please try again.')
-      setLoading(false)
-    }
+  const handleViewAssessment = (assessmentId) => {
+    navigate(`/results/${assessmentId}`)
   }
 
   const formatDate = (dateString) => {
@@ -104,30 +103,39 @@ function Dashboard() {
             </div>
           ) : (
             <div className="assessment-list">
-              {assessments.map((assessment) => (
-                <div
-                  key={assessment.id}
-                  className="assessment-item"
-                  onClick={() => handleViewAssessment(assessment.id)}
-                >
-                  <div className="assessment-date">
-                    {formatDate(assessment.created_at)}
-                  </div>
-                  <div className="assessment-info">
-                    <div className="assessment-score">
-                      <span className="score-number">{assessment.risk_score}</span>
-                      <span className="score-label">Risk Score</span>
+              {assessments.map((assessment) => {
+                const score = assessment.overall_score || assessment.risk_score || 0
+                const riskLevel = assessment.risk_level || 'Moderate'
+                const orgName = assessment.organization_name || 'Assessment'
+
+                return (
+                  <div
+                    key={assessment.id}
+                    className="assessment-item"
+                    onClick={() => handleViewAssessment(assessment.id)}
+                  >
+                    <div className="assessment-main">
+                      <div className="assessment-org-name">{orgName}</div>
+                      <div className="assessment-date">
+                        {formatDate(assessment.created_at)}
+                      </div>
                     </div>
-                    <div
-                      className="assessment-level"
-                      style={{ backgroundColor: RISK_COLORS[assessment.risk_level] }}
-                    >
-                      {assessment.risk_level}
+                    <div className="assessment-info">
+                      <div className="assessment-score">
+                        <span className="score-number">{Math.round(score)}</span>
+                        <span className="score-label">Score</span>
+                      </div>
+                      <div
+                        className="assessment-level"
+                        style={{ backgroundColor: RISK_COLORS[riskLevel] || '#666' }}
+                      >
+                        {riskLevel}
+                      </div>
                     </div>
+                    <div className="assessment-arrow">→</div>
                   </div>
-                  <div className="assessment-arrow">→</div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

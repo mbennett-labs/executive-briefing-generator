@@ -487,10 +487,22 @@ body {
   transform: translateX(4px);
 }
 
-.assessment-date {
+.assessment-main {
   flex: 1;
-  color: #333;
-  font-size: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.assessment-org-name {
+  color: #1a1a2e;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.assessment-date {
+  color: #666;
+  font-size: 13px;
 }
 
 .assessment-info {
