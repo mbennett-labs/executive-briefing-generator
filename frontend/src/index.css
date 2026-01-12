@@ -1379,6 +1379,47 @@ body {
   justify-content: center;
 }
 
+.report-content {
+  width: 100%;
+}
+
+.report-section {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 16px 0;
+  text-align: left;
+}
+
+.report-section h3 {
+  color: #1a1a2e;
+  font-size: 18px;
+  margin-bottom: 12px;
+  border-bottom: 2px solid #17a2b8;
+  padding-bottom: 8px;
+}
+
+.report-section p {
+  color: #333;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.report-section ul {
+  margin: 8px 0 16px 20px;
+  padding: 0;
+}
+
+.report-section li {
+  color: #444;
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+
+.report-section strong {
+  color: #1a1a2e;
+}
+
 /* Error Boundary */
 .error-boundary {
   min-height: 100vh;
