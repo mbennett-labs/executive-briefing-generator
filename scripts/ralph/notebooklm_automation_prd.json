@@ -1,0 +1,105 @@
+{
+  "project": "NotebookLM Browser Automation Integration",
+  "version": "1.0",
+  "objective": "Prove that Claude Code can autonomously interact with NotebookLM to query notebooks and extract synthesized responses. This is the foundation for sourced report generation.",
+  "stories": [
+    {
+      "id": "US-200",
+      "title": "Set up Playwright browser automation environment for NotebookLM",
+      "priority": 1,
+      "passes": true,
+      "description": "Install and configure Playwright for browser automation. Verify Chrome/Chromium is available and can open websites.",
+      "acceptanceCriteria": [
+        "Install playwright npm package: npm install -D @playwright/test",
+        "Verify Chromium browser is available: npx playwright install chromium",
+        "Create test script at ./scripts/notebooklm-automation.js",
+        "Script successfully opens https://www.google.com and takes screenshot to verify browser automation works",
+        "Script closes browser cleanly without errors",
+        "Log output: '[PLAYWRIGHT] Browser automation ready'"
+      ]
+    },
+    {
+      "id": "US-201",
+      "title": "Open NotebookLM and authenticate with Google account",
+      "priority": 2,
+      "passes": true,
+      "description": "Use Playwright to open NotebookLM, navigate to login page, and authenticate with mikebennett637@gmail.com",
+      "acceptanceCriteria": [
+        "Open https://notebooklm.google.com/notebook/0d219d93-5e1a-45d6-ae29-2e381d9f8e9b (PRD Design for AI Agents notebook)",
+        "If login required: handle Google OAuth flow (may need --headed mode to see login)",
+        "Wait for notebook to fully load (check for 'Chat' button visible)",
+        "Verify user is logged in: screenshot shows 'mikebennett637@gmail.com' in top right",
+        "Log: '[NOTEBOOKLM] Successfully authenticated and loaded notebook'",
+        "If OAuth fails: document the flow for manual setup (user can click to authorize once, then automation continues)"
+      ]
+    },
+    {
+      "id": "US-202",
+      "title": "Query NotebookLM with dynamic prompt and extract synthesized response",
+      "priority": 3,
+      "passes": true,
+      "description": "Click the chat/ask input, send a query about Ralph methodology, wait for NotebookLM to synthesize sources, and extract the text response.",
+      "acceptanceCriteria": [
+        "Find and click the chat input field (look for 'Start typing...' or similar placeholder)",
+        "Type query: 'Based on Ralph methodology, explain the key principles for autonomous AI coding. Focus on story sizing, feedback loops, and memory artifacts.'",
+        "Send query (press Enter or click Send button)",
+        "Wait for NotebookLM to generate response (30-60 seconds timeout)",
+        "Extract the synthesized text response from the chat output",
+        "Response should be 200+ words discussing Ralph principles, story sizing, prd.json, progress.txt, feedback loops",
+        "Log: '[NOTEBOOKLM] Query sent and response extracted successfully'",
+        "Save response to: ./scripts/notebooklm_response.txt"
+      ]
+    },
+    {
+      "id": "US-203",
+      "title": "Parse and structure NotebookLM response as JSON for backend integration",
+      "priority": 4,
+      "passes": true,
+      "description": "Convert the extracted response text into structured JSON with metadata for use in the Executive Briefing Generator backend.",
+      "acceptanceCriteria": [
+        "Read ./scripts/notebooklm_response.txt",
+        "Create JSON structure: { query, notebook_id, response_text, extracted_at, source_count, confidence_score }",
+        "Include the full response text",
+        "Add metadata: notebook_id='0d219d93-5e1a-45d6-ae29-2e381d9f8e9b', extracted_at=ISO timestamp",
+        "Save to: ./scripts/notebooklm_response.json",
+        "Verify JSON is valid (no parsing errors)",
+        "Log output showing full JSON structure"
+      ]
+    },
+    {
+      "id": "US-204",
+      "title": "Test variable-based querying (prove dynamic prompts work)",
+      "priority": 5,
+      "passes": true,
+      "description": "Demonstrate that NotebookLM can be queried with different prompts. Simulate assessment variable routing to different queries.",
+      "acceptanceCriteria": [
+        "Send second query (different from US-202) to NotebookLM",
+        "Query: 'Explain the initializer pattern in Ralph methodology and how it differs from iterative coding agents.'",
+        "Extract response (should be different from first query, showing dynamic capability)",
+        "Save response to: ./scripts/notebooklm_response_test2.json",
+        "Verify both responses are different (NotebookLM synthesized different aspects of sources)",
+        "Log: '[NOTEBOOKLM] Dynamic querying confirmed - different prompts produce different synthesized responses'"
+      ]
+    },
+    {
+      "id": "US-205",
+      "title": "Close browser and document automation workflow",
+      "priority": 6,
+      "passes": true,
+      "description": "Clean shutdown of browser and create documentation for how this automation will integrate with Executive Briefing Generator.",
+      "acceptanceCriteria": [
+        "Close browser cleanly (await browser.close())",
+        "No hanging processes or errors",
+        "Create NOTEBOOKLM_AUTOMATION.md with:",
+        "  - Architecture diagram (text-based)",
+        "  - Step-by-step workflow",
+        "  - How assessment variables map to NotebookLM queries",
+        "  - Plan for integrating into report generation backend",
+        "  - Known limitations and next steps",
+        "Commit all files: automation script, responses, documentation",
+        "Log: '[COMPLETE] NotebookLM browser automation proof of concept successful'"
+      ]
+    }
+  ],
+  "notes": "This is the PROOF OF CONCEPT phase. Once these stories pass, we will integrate this into the Executive Briefing Generator backend. The goal is to verify that Claude Code can autonomously interact with NotebookLM without user intervention, paving the way for fully sourced, personalized reports."
+}
