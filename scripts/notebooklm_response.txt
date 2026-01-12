@@ -1,0 +1,10 @@
+ To ensure the house is built correctly, you must leave behind a perfect 
+ (progress.txt), and a 
+ (AGENTS.md). By making each day’s task small enough to finish before the sun goes down, the crew can wake up the next morning, read your notes, and pick up exactly where they left off without needing you to stand over their shoulders.
+ audio_magic_eraser  Audio Overview edit
+ subscriptions  Video Overview edit
+ flowchart  Mind Map 
+ auto_tab_group  Reports 
+ cards_star  Flashcards edit
+ stacked_bar_chart  BETA  Infographic edit
+ tablet  BETA  Slide Deck edit
