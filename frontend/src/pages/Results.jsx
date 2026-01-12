@@ -33,7 +33,7 @@ function Results() {
 
   // Report generation state
   const [isGenerating, setIsGenerating] = useState(false)
-  const [reportId, setReportId] = useState(null)
+  const [reportContent, setReportContent] = useState(null)
   const [reportError, setReportError] = useState('')
 
   // Email state
@@ -145,32 +145,22 @@ function Results() {
       const result = await api.generateReport(assessmentId)
       console.log('[Report Generation] Response received:', JSON.stringify(result, null, 2))
       console.log('[Report Generation] Response success:', result.success)
-      console.log('[Report Generation] Response reportId:', result.reportId || result.id)
 
-      // First check if backend indicates success
-      if (result.success === true) {
-        const newReportId = result.id || result.reportId
-        if (newReportId) {
-          console.log('[Report Generation] Success! Report ID:', newReportId)
-          setReportId(newReportId)
-        } else {
-          console.error('[Report Generation] Success but no report ID in response:', result)
-          setReportError('Report generated but no ID returned. Please try again.')
-        }
+      // Check if backend returned success with report content
+      if (result.success === true && result.content) {
+        console.log('[Report Generation] Success! Report content received')
+        setReportContent(result.content)
       } else if (result.success === false) {
         // Backend explicitly returned success: false
         console.error('[Report Generation] Backend returned success=false:', result)
         setReportError(result.error || result.message || 'Report generation failed. Please try again.')
+      } else if (result.content) {
+        // Fallback: content exists without explicit success flag
+        console.log('[Report Generation] Found content without success flag')
+        setReportContent(result.content)
       } else {
-        // Fallback: check for report ID even if success flag is missing
-        const newReportId = result.id || result.reportId
-        if (newReportId) {
-          console.log('[Report Generation] No success flag but found reportId:', newReportId)
-          setReportId(newReportId)
-        } else {
-          console.error('[Report Generation] Unexpected response format:', result)
-          setReportError('Unexpected response from server. Please try again.')
-        }
+        console.error('[Report Generation] Unexpected response format:', result)
+        setReportError('Unexpected response from server. Please try again.')
       }
     } catch (err) {
       console.error('[Report Generation] Error:', err)
@@ -322,14 +312,87 @@ function Results() {
               <p>Generating your personalized briefing...</p>
               <p className="generating-note">This may take up to 60 seconds</p>
             </div>
-          ) : reportId ? (
-            <div className="report-ready">
-              <div className="report-ready-icon">&#10003;</div>
-              <p>Your executive briefing is ready!</p>
+          ) : reportContent ? (
+            <div className="report-content">
+              <div className="report-ready">
+                <div className="report-ready-icon">&#10003;</div>
+                <p>Your executive briefing is ready!</p>
+              </div>
 
               {emailSuccess && (
                 <div className="alert alert-success" style={{ marginBottom: '16px' }}>
                   {emailSuccess}
+                </div>
+              )}
+
+              {/* Display Executive Summary */}
+              {reportContent.executive_summary && (
+                <div className="report-section">
+                  <h3>Executive Summary</h3>
+                  <p>{reportContent.executive_summary}</p>
+                </div>
+              )}
+
+              {/* Display Risk Assessment */}
+              {reportContent.risk_assessment && (
+                <div className="report-section">
+                  <h3>Risk Assessment</h3>
+                  <p><strong>Overall Risk:</strong> {reportContent.risk_assessment.overall_risk}</p>
+                  {reportContent.risk_assessment.key_findings && (
+                    <div>
+                      <strong>Key Findings:</strong>
+                      <ul>
+                        {reportContent.risk_assessment.key_findings.map((finding, idx) => (
+                          <li key={idx}>{finding}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Display Recommendations */}
+              {reportContent.recommendations && (
+                <div className="report-section">
+                  <h3>Recommendations</h3>
+                  {reportContent.recommendations.immediate && (
+                    <div>
+                      <strong>Immediate Actions:</strong>
+                      <ul>
+                        {reportContent.recommendations.immediate.map((rec, idx) => (
+                          <li key={idx}>{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {reportContent.recommendations.short_term && (
+                    <div>
+                      <strong>Short-term Actions:</strong>
+                      <ul>
+                        {reportContent.recommendations.short_term.map((rec, idx) => (
+                          <li key={idx}>{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {reportContent.recommendations.long_term && (
+                    <div>
+                      <strong>Long-term Actions:</strong>
+                      <ul>
+                        {reportContent.recommendations.long_term.map((rec, idx) => (
+                          <li key={idx}>{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Display Compliance Notes */}
+              {reportContent.compliance_notes && (
+                <div className="report-section">
+                  <h3>Compliance Notes</h3>
+                  <p>{reportContent.compliance_notes}</p>
                 </div>
               )}
 
