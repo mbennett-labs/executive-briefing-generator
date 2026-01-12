@@ -1,0 +1,8 @@
+{
+  "query": "Based on Ralph methodology, explain the key principles for autonomous AI coding. Focus on story sizing, feedback loops, and memory artifacts.",
+  "notebook_id": "0d219d93-5e1a-45d6-ae29-2e381d9f8e9b",
+  "response_text": " To ensure the house is built correctly, you must leave behind a perfect \n (progress.txt), and a \n (AGENTS.md). By making each day’s task small enough to finish before the sun goes down, the crew can wake up the next morning, read your notes, and pick up exactly where they left off without needing you to stand over their shoulders.\n audio_magic_eraser  Audio Overview edit\n subscriptions  Video Overview edit\n flowchart  Mind Map \n auto_tab_group  Reports \n cards_star  Flashcards edit\n stacked_bar_chart  BETA  Infographic edit\n tablet  BETA  Slide Deck edit",
+  "extracted_at": "2026-01-12T22:51:47.336Z",
+  "source_count": 1,
+  "confidence_score": 0.7999999999999999
+}
