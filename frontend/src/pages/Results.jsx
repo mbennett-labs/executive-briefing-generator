@@ -143,16 +143,34 @@ function Results() {
     try {
       console.log('[Report Generation] Starting request for assessment:', assessmentId)
       const result = await api.generateReport(assessmentId)
-      console.log('[Report Generation] Response received:', result)
+      console.log('[Report Generation] Response received:', JSON.stringify(result, null, 2))
+      console.log('[Report Generation] Response success:', result.success)
+      console.log('[Report Generation] Response reportId:', result.reportId || result.id)
 
-      // Check for report ID in response
-      const newReportId = result.id || result.reportId
-      if (newReportId) {
-        console.log('[Report Generation] Success, reportId:', newReportId)
-        setReportId(newReportId)
+      // First check if backend indicates success
+      if (result.success === true) {
+        const newReportId = result.id || result.reportId
+        if (newReportId) {
+          console.log('[Report Generation] Success! Report ID:', newReportId)
+          setReportId(newReportId)
+        } else {
+          console.error('[Report Generation] Success but no report ID in response:', result)
+          setReportError('Report generated but no ID returned. Please try again.')
+        }
+      } else if (result.success === false) {
+        // Backend explicitly returned success: false
+        console.error('[Report Generation] Backend returned success=false:', result)
+        setReportError(result.error || result.message || 'Report generation failed. Please try again.')
       } else {
-        console.error('[Report Generation] No report ID in response:', result)
-        setReportError('Report generated but no ID returned. Please try again.')
+        // Fallback: check for report ID even if success flag is missing
+        const newReportId = result.id || result.reportId
+        if (newReportId) {
+          console.log('[Report Generation] No success flag but found reportId:', newReportId)
+          setReportId(newReportId)
+        } else {
+          console.error('[Report Generation] Unexpected response format:', result)
+          setReportError('Unexpected response from server. Please try again.')
+        }
       }
     } catch (err) {
       console.error('[Report Generation] Error:', err)
