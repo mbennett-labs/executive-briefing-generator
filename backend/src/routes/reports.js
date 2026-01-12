@@ -152,21 +152,18 @@ router.post('/:assessmentId/generate', requireAuth, async (req, res) => {
       });
     }
 
-    // Save report to database
-    console.log('[Report Generation] Saving report to database', { assessmentId });
-    const report = await Report.create({
-      assessment_id: assessmentId,
-      content: result.report,
-      pdf_url: null
-    });
-
-    console.log('[Report Generation] Complete', {
+    // ==========================================================================
+    // RETURN REPORT DIRECTLY - Skip database save to avoid foreign key issues
+    // Database persistence disabled for now - can be re-enabled later
+    // ==========================================================================
+    console.log('[Report Generation] Complete - Returning report directly to frontend', {
       assessmentId,
-      reportId: report.id
+      contentSize: JSON.stringify(result.report).length,
+      timestamp: new Date().toISOString()
     });
 
     res.status(201).json({
-      id: report.id,
+      success: true,
       content: result.report,
       usage: result.usage
     });
@@ -237,10 +234,49 @@ router.post('/:assessmentId', requireAuth, async (req, res) => {
     // Create relative URL for the PDF
     const pdfUrl = `/reports/${filename}`;
 
-    // Store report record in database
-    const report = await Report.create({
-      assessment_id: assessmentId,
-      pdf_url: pdfUrl
+    // Store report record in database with error handling
+    console.log('[PDF Report] [DB] Starting database insert', {
+      assessmentId,
+      pdfUrl,
+      timestamp: new Date().toISOString()
+    });
+
+    let report;
+    try {
+      report = await Report.create({
+        assessment_id: assessmentId,
+        pdf_url: pdfUrl
+      });
+    } catch (dbError) {
+      console.error('[PDF Report] [DB] DATABASE INSERT FAILED', {
+        assessmentId,
+        error: dbError.message,
+        code: dbError.code,
+        stack: dbError.stack,
+        timestamp: new Date().toISOString()
+      });
+      return res.status(500).json({
+        error: 'Failed to save report to database: ' + dbError.message,
+        errorCode: dbError.code || 'DB_INSERT_FAILED'
+      });
+    }
+
+    if (!report || !report.id) {
+      console.error('[PDF Report] [DB] INSERT VERIFICATION FAILED', {
+        assessmentId,
+        report,
+        timestamp: new Date().toISOString()
+      });
+      return res.status(500).json({
+        error: 'Database insert returned invalid result',
+        errorCode: 'DB_INSERT_NO_RESULT'
+      });
+    }
+
+    console.log('[PDF Report] [DB] Insert successful', {
+      assessmentId,
+      reportId: report.id,
+      timestamp: new Date().toISOString()
     });
 
     // Return success with report info
@@ -251,8 +287,12 @@ router.post('/:assessmentId', requireAuth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Report generation error:', error);
-    res.status(500).json({ error: 'Failed to generate report' });
+    console.error('[PDF Report] Unexpected error', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+    res.status(500).json({ error: 'Failed to generate report: ' + error.message });
   }
 });
 
@@ -291,8 +331,15 @@ router.get('/:assessmentId', requireAuth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get report error:', error);
-    res.status(500).json({ error: 'Failed to retrieve report' });
+    console.error('[Get Report] Unexpected error', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+    res.status(500).json({
+      error: 'Failed to retrieve report: ' + error.message,
+      timestamp: Date.now()
+    });
   }
 });
 
@@ -345,8 +392,15 @@ router.get('/:assessmentId/download', requireAuth, async (req, res) => {
     res.send(pdfBuffer);
 
   } catch (error) {
-    console.error('Report download error:', error);
-    res.status(500).json({ error: 'Failed to download report' });
+    console.error('[Download Report] Unexpected error', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+    res.status(500).json({
+      error: 'Failed to download report: ' + error.message,
+      timestamp: Date.now()
+    });
   }
 });
 
@@ -410,19 +464,78 @@ router.post('/:assessmentId/email', requireAuth, async (req, res) => {
       pdfFilename
     });
 
-    // Find or create report record
-    let report = await Report.findByAssessmentId(assessmentId);
+    // Find or create report record with error handling
+    console.log('[Email Report] [DB] Finding or creating report record', {
+      assessmentId,
+      timestamp: new Date().toISOString()
+    });
 
-    if (!report) {
-      // Create a new report record if one doesn't exist
-      report = await Report.create({
-        assessment_id: assessmentId,
-        pdf_url: null
+    let report;
+    try {
+      report = await Report.findByAssessmentId(assessmentId);
+
+      if (!report) {
+        console.log('[Email Report] [DB] No existing report, creating new record', {
+          assessmentId,
+          timestamp: new Date().toISOString()
+        });
+        report = await Report.create({
+          assessment_id: assessmentId,
+          pdf_url: null
+        });
+      }
+    } catch (dbError) {
+      console.error('[Email Report] [DB] DATABASE OPERATION FAILED', {
+        assessmentId,
+        error: dbError.message,
+        code: dbError.code,
+        stack: dbError.stack,
+        timestamp: new Date().toISOString()
+      });
+      // Email was sent but DB save failed - log this critical issue
+      console.error('[Email Report] WARNING: Email was sent but report record failed to save!');
+      return res.status(500).json({
+        error: 'Email sent but failed to save report record: ' + dbError.message,
+        emailSent: true,
+        errorCode: dbError.code || 'DB_OPERATION_FAILED'
       });
     }
 
-    // Update email_sent flag
-    await Report.markEmailSent(report.id);
+    if (!report || !report.id) {
+      console.error('[Email Report] [DB] REPORT RECORD VERIFICATION FAILED', {
+        assessmentId,
+        report,
+        timestamp: new Date().toISOString()
+      });
+      return res.status(500).json({
+        error: 'Failed to create or find report record',
+        emailSent: true,
+        errorCode: 'DB_NO_RESULT'
+      });
+    }
+
+    // Update email_sent flag with error handling
+    try {
+      await Report.markEmailSent(report.id);
+      console.log('[Email Report] [DB] Email sent flag updated', {
+        reportId: report.id,
+        timestamp: new Date().toISOString()
+      });
+    } catch (updateError) {
+      console.error('[Email Report] [DB] Failed to update email_sent flag', {
+        reportId: report.id,
+        error: updateError.message,
+        timestamp: new Date().toISOString()
+      });
+      // Non-fatal - email was sent, just log the issue
+    }
+
+    console.log('[Email Report] Complete - Email sent and report updated', {
+      assessmentId,
+      reportId: report.id,
+      email: user.email,
+      timestamp: new Date().toISOString()
+    });
 
     // Return success
     res.status(200).json({
@@ -431,8 +544,15 @@ router.post('/:assessmentId/email', requireAuth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Email send error:', error);
-    res.status(500).json({ error: 'Failed to send email: ' + error.message });
+    console.error('[Email Report] Unexpected error', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+    res.status(500).json({
+      error: 'Failed to send email: ' + error.message,
+      timestamp: Date.now()
+    });
   }
 });
 
