@@ -135,40 +135,67 @@ function Results() {
     return 'Prepared'
   }
 
-  // Handle report generation
+  // Handle report generation with background job polling
   const handleGenerateReport = async () => {
     setIsGenerating(true)
     setReportError('')
 
     try {
-      console.log('[Report Generation] Starting request for assessment:', assessmentId)
-      const result = await api.generateReport(assessmentId)
-      console.log('[Report Generation] Response received:', JSON.stringify(result, null, 2))
-      console.log('[Report Generation] Response success:', result.success)
+      console.log('[Report Generation] Starting job for assessment:', assessmentId)
 
-      // Check if backend returned success with report content
-      if (result.success === true && result.content) {
-        console.log('[Report Generation] Success! Report content received')
-        setReportContent(result.content)
-      } else if (result.success === false) {
-        // Backend explicitly returned success: false
-        console.error('[Report Generation] Backend returned success=false:', result)
-        setReportError(result.error || result.message || 'Report generation failed. Please try again.')
-      } else if (result.content) {
-        // Fallback: content exists without explicit success flag
-        console.log('[Report Generation] Found content without success flag')
-        setReportContent(result.content)
-      } else {
-        console.error('[Report Generation] Unexpected response format:', result)
-        setReportError('Unexpected response from server. Please try again.')
+      // Step 1: Start the background job
+      const startResult = await api.generateReport(assessmentId)
+      console.log('[Report Generation] Job started:', startResult)
+
+      if (!startResult.success || !startResult.jobId) {
+        throw new Error(startResult.error || 'Failed to start report generation')
       }
+
+      const jobId = startResult.jobId
+      console.log('[Report Generation] Polling job:', jobId)
+
+      // Step 2: Poll for job completion
+      const pollInterval = 2000 // 2 seconds
+      const maxPolls = 90 // 3 minutes max (90 * 2 seconds)
+      let pollCount = 0
+
+      const pollForResult = async () => {
+        while (pollCount < maxPolls) {
+          pollCount++
+          console.log(`[Report Generation] Poll ${pollCount}/${maxPolls}`)
+
+          try {
+            const statusResult = await api.getJobStatus(jobId)
+            console.log('[Report Generation] Job status:', statusResult.status)
+
+            if (statusResult.status === 'completed') {
+              // Success! Extract the report content
+              console.log('[Report Generation] Job completed!')
+              setReportContent(statusResult.result.content)
+              setIsGenerating(false)
+              return
+            } else if (statusResult.status === 'failed') {
+              // Job failed
+              throw new Error(statusResult.error || 'Report generation failed')
+            }
+
+            // Still processing - wait and poll again
+            await new Promise(resolve => setTimeout(resolve, pollInterval))
+
+          } catch (pollError) {
+            console.error('[Report Generation] Poll error:', pollError)
+            throw pollError
+          }
+        }
+
+        // Timeout - too many polls
+        throw new Error('Report generation timed out. Please try again.')
+      }
+
+      await pollForResult()
+
     } catch (err) {
       console.error('[Report Generation] Error:', err)
-      console.error('[Report Generation] Error details:', {
-        message: err.message,
-        status: err.status,
-        data: err.data
-      })
 
       if (err.status === 401) {
         navigate('/login')
@@ -176,7 +203,6 @@ function Results() {
         const errorMessage = err.data?.error || err.message || 'Failed to generate report. Please try again.'
         setReportError(errorMessage)
       }
-    } finally {
       setIsGenerating(false)
     }
   }

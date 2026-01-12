@@ -89,6 +89,9 @@ export const api = {
     method: 'POST'
   }),
 
+  // Poll for job status (background job pattern)
+  getJobStatus: (jobId) => request(`/reports/job/${jobId}`),
+
   getReport: (assessmentId) => request(`/reports/${assessmentId}`),
 
   emailReport: (assessmentId) => request(`/reports/${assessmentId}/email`, {

@@ -25,160 +25,205 @@ if (!fs.existsSync(reportsDir)) {
   fs.mkdirSync(reportsDir, { recursive: true });
 }
 
+// ==========================================================================
+// BACKGROUND JOB STORE - In-memory store for report generation jobs
+// Workaround for Railway's 60-second request timeout
+// ==========================================================================
+const jobStore = new Map();
+
+// Generate unique job ID
+function generateJobId() {
+  return `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Clean up old jobs (older than 30 minutes)
+function cleanupOldJobs() {
+  const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+  for (const [jobId, job] of jobStore.entries()) {
+    if (job.createdAt < thirtyMinutesAgo) {
+      jobStore.delete(jobId);
+    }
+  }
+}
+
+// Run cleanup every 5 minutes
+setInterval(cleanupOldJobs, 5 * 60 * 1000);
+
 /**
  * POST /api/reports/:assessmentId/generate
- * Generate an AI-powered executive briefing using Claude
+ * Start background job to generate AI-powered executive briefing
+ * Returns immediately with jobId to poll for status
  */
 router.post('/:assessmentId/generate', requireAuth, async (req, res) => {
   const assessmentId = parseInt(req.params.assessmentId, 10);
+  const userId = req.user?.id;
 
-  // Log request details
-  console.log('[Report Generation] Starting request', {
+  console.log('[Report Generation] Starting background job request', {
     assessmentId,
-    userId: req.user?.id,
+    userId,
     timestamp: new Date().toISOString()
   });
 
   try {
     if (isNaN(assessmentId)) {
-      console.error('[Report Generation] Invalid assessment ID:', req.params.assessmentId);
-      return res.status(400).json({ error: 'Invalid assessment ID', timestamp: Date.now() });
+      return res.status(400).json({ error: 'Invalid assessment ID' });
     }
 
-    // Find the assessment
-    console.log('[Report Generation] Fetching assessment:', assessmentId);
+    // Find and validate assessment
     const assessment = await Assessment.findById(assessmentId);
 
     if (!assessment) {
-      console.error('[Report Generation] Assessment not found:', assessmentId);
-      return res.status(404).json({ error: 'Assessment not found', timestamp: Date.now() });
+      return res.status(404).json({ error: 'Assessment not found' });
     }
 
-    // Verify ownership
-    if (assessment.user_id !== req.user.id) {
-      console.error('[Report Generation] Access denied - user mismatch', {
-        assessmentUserId: assessment.user_id,
-        requestUserId: req.user.id
-      });
-      return res.status(403).json({ error: 'Access denied', timestamp: Date.now() });
+    if (assessment.user_id !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Parse JSON fields from database (SQLite stores as strings)
-    const responses = typeof assessment.responses === 'string'
-      ? JSON.parse(assessment.responses)
-      : assessment.responses || {};
-
-    // Log assessment details
-    console.log('[Report Generation] Assessment loaded', {
+    // Create job and return immediately
+    const jobId = generateJobId();
+    jobStore.set(jobId, {
+      status: 'pending',
       assessmentId,
-      organization_name: assessment.organization_name,
-      responsesCount: Object.keys(responses).length
+      userId,
+      createdAt: Date.now(),
+      result: null,
+      error: null
     });
 
-    // Get questions for scoring context
-    const questions = await db('questions').select('*').orderBy('order_index', 'asc');
-    console.log('[Report Generation] Questions loaded:', questions.length);
+    console.log('[Report Generation] Job created', { jobId, assessmentId });
 
-    // Get or calculate scores - parse if stored as JSON string
-    let category_scores = assessment.scores;
-    if (typeof category_scores === 'string') {
-      try {
-        category_scores = JSON.parse(category_scores);
-      } catch (e) {
-        category_scores = null;
-      }
-    }
-
-    let overall_score = assessment.overall_score || assessment.risk_score;
-
-    if (!category_scores && responses) {
-      const calculated = calculateScores(responses, questions);
-      category_scores = calculated.category_scores;
-      overall_score = calculated.overall_score;
-    }
-
-    const risk_level = getRiskLevel(overall_score);
-    const percentile = getPercentile(overall_score);
-
-    // Prepare data for Claude
-    const assessmentData = {
-      org_name: assessment.organization_name || 'Healthcare Organization',
-      org_type: assessment.organization_type || 'Hospital',
-      employee_count: assessment.employee_count || '1000-5000',
-      responses,
-      questions,
-      category_scores: category_scores || {},
-      overall_score,
-      percentile,
-      risk_level
-    };
-
-    // Generate report using Claude
-    console.log('[Report Generation] Claude API call starting', {
-      assessmentId,
-      org_name: assessmentData.org_name,
-      dataSize: JSON.stringify(assessmentData).length
-    });
-
-    let result;
-    try {
-      result = await generateReport(assessmentData);
-      console.log('[Report Generation] Claude API response received', {
-        assessmentId,
-        success: result.success,
-        usage: result.usage
-      });
-    } catch (claudeError) {
-      console.error('[Report Generation] Claude API error', {
-        assessmentId,
-        error: claudeError.message,
-        response: claudeError.response?.data || claudeError.response,
-        stack: claudeError.stack
-      });
-      return res.status(500).json({
-        error: 'Claude API error: ' + claudeError.message,
-        timestamp: Date.now()
-      });
-    }
-
-    if (!result.success) {
-      console.error('[Report Generation] Report generation failed - no success flag', {
-        assessmentId,
-        result
-      });
-      return res.status(500).json({
-        error: 'Report generation failed',
-        timestamp: Date.now()
-      });
-    }
-
-    // ==========================================================================
-    // RETURN REPORT DIRECTLY - Skip database save to avoid foreign key issues
-    // Database persistence disabled for now - can be re-enabled later
-    // ==========================================================================
-    console.log('[Report Generation] Complete - Returning report directly to frontend', {
-      assessmentId,
-      contentSize: JSON.stringify(result.report).length,
-      timestamp: new Date().toISOString()
-    });
-
-    res.status(201).json({
+    // Return job ID immediately (within timeout)
+    res.status(202).json({
       success: true,
-      content: result.report,
-      usage: result.usage
+      jobId,
+      message: 'Report generation started'
+    });
+
+    // Run report generation in background (after response sent)
+    setImmediate(async () => {
+      const job = jobStore.get(jobId);
+      if (!job) return;
+
+      job.status = 'processing';
+      console.log('[Report Generation] Background processing started', { jobId });
+
+      try {
+        // Parse responses
+        const responses = typeof assessment.responses === 'string'
+          ? JSON.parse(assessment.responses)
+          : assessment.responses || {};
+
+        // Get questions
+        const questions = await db('questions').select('*').orderBy('order_index', 'asc');
+
+        // Calculate scores
+        let category_scores = assessment.scores;
+        if (typeof category_scores === 'string') {
+          try {
+            category_scores = JSON.parse(category_scores);
+          } catch (e) {
+            category_scores = null;
+          }
+        }
+
+        let overall_score = assessment.overall_score || assessment.risk_score;
+
+        if (!category_scores && responses) {
+          const calculated = calculateScores(responses, questions);
+          category_scores = calculated.category_scores;
+          overall_score = calculated.overall_score;
+        }
+
+        const risk_level = getRiskLevel(overall_score);
+        const percentile = getPercentile(overall_score);
+
+        // Prepare data for Claude
+        const assessmentData = {
+          org_name: assessment.organization_name || 'Healthcare Organization',
+          org_type: assessment.organization_type || 'Hospital',
+          employee_count: assessment.employee_count || '1000-5000',
+          responses,
+          questions,
+          category_scores: category_scores || {},
+          overall_score,
+          percentile,
+          risk_level
+        };
+
+        console.log('[Report Generation] Calling Claude API', { jobId, assessmentId });
+
+        // Call Claude API
+        const result = await generateReport(assessmentData);
+
+        if (result.success) {
+          job.status = 'completed';
+          job.result = {
+            content: result.report,
+            usage: result.usage
+          };
+          console.log('[Report Generation] Job completed successfully', { jobId });
+        } else {
+          job.status = 'failed';
+          job.error = 'Report generation failed';
+          console.error('[Report Generation] Job failed - no success', { jobId });
+        }
+
+      } catch (error) {
+        job.status = 'failed';
+        job.error = error.message || 'Unknown error';
+        console.error('[Report Generation] Job failed with error', {
+          jobId,
+          error: error.message,
+          stack: error.stack
+        });
+      }
     });
 
   } catch (error) {
-    console.error('[Report Generation] Unexpected error', {
+    console.error('[Report Generation] Error creating job', {
       assessmentId,
-      error: error.message,
-      stack: error.stack
+      error: error.message
     });
     res.status(500).json({
-      error: error.message || 'Failed to generate report',
-      timestamp: Date.now()
+      error: error.message || 'Failed to start report generation'
     });
   }
+});
+
+/**
+ * GET /api/reports/job/:jobId
+ * Poll for background job status
+ */
+router.get('/job/:jobId', requireAuth, async (req, res) => {
+  const { jobId } = req.params;
+  const userId = req.user?.id;
+
+  const job = jobStore.get(jobId);
+
+  if (!job) {
+    return res.status(404).json({ error: 'Job not found' });
+  }
+
+  // Verify job belongs to user
+  if (job.userId !== userId) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  // Return job status
+  const response = {
+    jobId,
+    status: job.status,
+    createdAt: job.createdAt
+  };
+
+  if (job.status === 'completed') {
+    response.result = job.result;
+  } else if (job.status === 'failed') {
+    response.error = job.error;
+  }
+
+  res.json(response);
 });
 
 /**
