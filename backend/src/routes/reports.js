@@ -18,6 +18,7 @@ const { generateReport } = require('../utils/claude');
 const { generateReportContent } = require('../services/reportContent');
 const { generatePDF, generatePDFBuffer } = require('../services/pdfGenerator');
 const { sendReportEmail } = require('../services/emailService');
+const ThreadValidator = require('../utils/threadValidator');
 
 // Ensure reports directory exists
 const reportsDir = path.join(__dirname, '..', '..', 'reports');
@@ -88,7 +89,13 @@ router.post('/:assessmentId/generate', requireAuth, async (req, res) => {
       userId,
       createdAt: Date.now(),
       result: null,
-      error: null
+      error: null,
+      threads: {
+        generate: { status: 'pending' },
+        save: { status: 'pending' },
+        verify: { status: 'pending' },
+        validate: { status: 'pending' }
+      }
     });
 
     console.log('[Report Generation] Job created', { jobId, assessmentId });
@@ -101,14 +108,24 @@ router.post('/:assessmentId/generate', requireAuth, async (req, res) => {
     });
 
     // Run report generation in background (after response sent)
+    // Using Thread-Based Engineering: Boris Chalk method
     setImmediate(async () => {
       const job = jobStore.get(jobId);
       if (!job) return;
 
       job.status = 'processing';
-      console.log('[Report Generation] Background processing started', { jobId });
+      const threadValidator = new ThreadValidator({ maxRetries: 3 });
+      const startTime = Date.now();
+
+      console.log('[Report Generation] Background processing started - Thread-Based Engineering', { jobId });
 
       try {
+        // ================================================================
+        // THREAD 1: GENERATE - Claude API generates report
+        // ================================================================
+        console.log('[Thread 1 START] Generating report via Claude API', { jobId, assessmentId });
+        job.threads.generate = { status: 'processing', startedAt: Date.now() };
+
         // Parse responses
         const responses = typeof assessment.responses === 'string'
           ? JSON.parse(assessment.responses)
@@ -153,29 +170,85 @@ router.post('/:assessmentId/generate', requireAuth, async (req, res) => {
 
         console.log('[Report Generation] Calling Claude API', { jobId, assessmentId });
 
-        // Call Claude API
+        // Call Claude API (Thread 1)
         const result = await generateReport(assessmentData);
 
-        if (result.success) {
-          job.status = 'completed';
-          job.result = {
-            content: result.report,
-            usage: result.usage
-          };
-          console.log('[Report Generation] Job completed successfully', { jobId });
-        } else {
+        if (!result.success) {
+          job.threads.generate = { status: '❌', error: 'Claude API failed', duration_ms: Date.now() - startTime };
           job.status = 'failed';
           job.error = 'Report generation failed';
-          console.error('[Report Generation] Job failed - no success', { jobId });
+          console.error('[Thread 1 FAILED] Claude API did not return success', { jobId });
+          return;
         }
+
+        job.threads.generate = { status: '✅', duration_ms: Date.now() - startTime };
+        console.log('[Thread 1 COMPLETE] Report generated successfully', {
+          jobId,
+          duration_ms: job.threads.generate.duration_ms
+        });
+
+        // Record Thread 1 in validator
+        threadValidator.recordThread('generate', '✅', { duration_ms: job.threads.generate.duration_ms });
+
+        // ================================================================
+        // THREADS 2-4: Save, Verify, Validate via ThreadValidator
+        // Don't return SUCCESS until ALL FOUR threads pass verification
+        // ================================================================
+        const reportData = {
+          assessment_id: assessmentId,
+          content: result.report
+        };
+
+        const validationResult = await threadValidator.runValidationPipeline(Report, reportData);
+
+        // Update job threads from validator
+        job.threads = {
+          generate: job.threads.generate,
+          save: validationResult.threads.save || { status: '❌' },
+          verify: validationResult.threads.verify || { status: '❌' },
+          validate: validationResult.threads.validate || { status: '❌' }
+        };
+
+        if (!validationResult.success) {
+          job.status = 'failed';
+          job.error = `Validation pipeline failed: ${validationResult.errors.join('; ')}`;
+          console.error('[Report Generation] VALIDATION PIPELINE FAILED', {
+            jobId,
+            errors: validationResult.errors,
+            threads: job.threads
+          });
+          return;
+        }
+
+        // ================================================================
+        // ALL FOUR THREADS PASSED - Return success
+        // ================================================================
+        job.status = 'completed';
+        job.result = {
+          content: result.report,
+          usage: result.usage,
+          reportId: validationResult.reportId
+        };
+
+        console.log('[Report Generation] ALL THREADS COMPLETE - Job successful', {
+          jobId,
+          reportId: validationResult.reportId,
+          threads: job.threads,
+          totalDuration_ms: Date.now() - startTime
+        });
 
       } catch (error) {
         job.status = 'failed';
         job.error = error.message || 'Unknown error';
+        job.threads = {
+          ...job.threads,
+          ...(threadValidator.getSummary().threads)
+        };
         console.error('[Report Generation] Job failed with error', {
           jobId,
           error: error.message,
-          stack: error.stack
+          stack: error.stack,
+          threads: job.threads
         });
       }
     });
@@ -210,17 +283,24 @@ router.get('/job/:jobId', requireAuth, async (req, res) => {
     return res.status(403).json({ error: 'Access denied' });
   }
 
-  // Return job status
+  // Return job status with Thread-Based Engineering details
   const response = {
     jobId,
     status: job.status,
-    createdAt: job.createdAt
+    createdAt: job.createdAt,
+    // Include thread status for transparency
+    threads: job.threads || null
   };
 
   if (job.status === 'completed') {
+    response.success = true;
     response.result = job.result;
+    response.reportId = job.result?.reportId || null;
   } else if (job.status === 'failed') {
+    response.success = false;
     response.error = job.error;
+  } else if (job.status === 'processing') {
+    response.success = null; // Still in progress
   }
 
   res.json(response);
@@ -414,8 +494,25 @@ router.get('/:assessmentId/download', requireAuth, async (req, res) => {
     // Get user info
     const user = await User.findById(req.user.id);
 
-    // Calculate scoring
-    const scoring = calculateRiskScore(assessment.responses);
+    // Use existing assessment scores (already calculated and stored)
+    let category_scores = assessment.scores;
+    if (typeof category_scores === 'string') {
+      try {
+        category_scores = JSON.parse(category_scores);
+      } catch (e) {
+        category_scores = {};
+      }
+    }
+
+    const overall_score = assessment.overall_score || assessment.risk_score || 0;
+    const riskLevelInfo = getRiskLevel(overall_score);
+
+    // Build scoring object from existing data
+    const scoring = {
+      totalScore: overall_score,
+      riskLevel: riskLevelInfo.level,
+      categoryScores: category_scores || {}
+    };
 
     // Generate report content
     const reportContent = generateReportContent({
@@ -482,8 +579,25 @@ router.post('/:assessmentId/email', requireAuth, async (req, res) => {
       return res.status(500).json({ error: 'User not found' });
     }
 
-    // Calculate scoring details
-    const scoring = calculateRiskScore(assessment.responses);
+    // Use existing assessment scores (already calculated and stored)
+    let category_scores = assessment.scores;
+    if (typeof category_scores === 'string') {
+      try {
+        category_scores = JSON.parse(category_scores);
+      } catch (e) {
+        category_scores = {};
+      }
+    }
+
+    const overall_score = assessment.overall_score || assessment.risk_score || 0;
+    const riskLevelInfo = getRiskLevel(overall_score);
+
+    // Build scoring object from existing data
+    const scoring = {
+      totalScore: overall_score,
+      riskLevel: riskLevelInfo.level,
+      categoryScores: category_scores || {}
+    };
 
     // Generate report content
     const reportContent = generateReportContent({
