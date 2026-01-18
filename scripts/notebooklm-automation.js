@@ -32,7 +32,7 @@ const CONFIG = {
     sourceAddTimeout: 30000,
 };
 
-// Source definitions for US-300
+// Source definitions for US-300 - All URLs (no local files)
 const SOURCES = {
     urls: [
         {
@@ -41,33 +41,32 @@ const SOURCES = {
             category: 'Quantum Threat Research'
         },
         {
-            name: 'NSA CNSA Suite',
-            url: 'https://www.nsa.gov/Cybersecurity/Quantum-Key-Distribution-QKD-and-Quantum-Cryptography-QC/',
+            name: 'NSA Cryptography',
+            url: 'https://www.nsa.gov/cryptography/',
             category: 'Quantum Threat Research'
         },
         {
-            name: 'HIPAA Technical Safeguards',
-            url: 'https://www.hhs.gov/hipaa/for-professionals/security/guidance/index.html',
+            name: 'HIPAA Security Rule',
+            url: 'https://www.hhs.gov/hipaa/',
             category: 'Healthcare Compliance'
+        },
+        {
+            name: 'CISA PQC Initiative',
+            url: 'https://www.cisa.gov/quantum',
+            category: 'Quantum Threat Research'
+        },
+        {
+            name: 'IBM Quantum Computing',
+            url: 'https://www.ibm.com/quantum',
+            category: 'Quantum Threat Research'
+        },
+        {
+            name: 'Cloud Security Alliance PQC',
+            url: 'https://cloudsecurityalliance.org/research/working-groups/quantum-safe-security/',
+            category: 'QSL Materials'
         }
     ],
-    localFiles: [
-        {
-            name: 'QSL Strategic Roadmap',
-            path: 'Quantum_Shield_Labs__Strategic_Roadmap_for_Post-Quantum_Security_Market_Entry.md',
-            category: 'QSL Materials'
-        },
-        {
-            name: 'Playbook Chapter 16',
-            path: 'playbook_chapter_16_up',
-            category: 'QSL Materials'
-        },
-        {
-            name: 'Playbook Chapter 24',
-            path: 'chapter_24_up',
-            category: 'QSL Materials'
-        }
-    ]
+    localFiles: []  // All sources are now URLs
 };
 
 // Synthesis prompts for US-302
@@ -130,6 +129,138 @@ class NotebookLMAutomation {
     }
 
     /**
+     * Dismiss any blocking CDK overlay backdrops
+     * NotebookLM uses Angular CDK overlays that can intercept clicks
+     */
+    async dismissOverlays() {
+        try {
+            await this.page.evaluate(() => {
+                // Remove backdrop overlays that block clicks
+                const backdrops = document.querySelectorAll('.cdk-overlay-backdrop');
+                backdrops.forEach(b => b.remove());
+
+                // Hide overlay panes that may be blocking
+                const panes = document.querySelectorAll('.cdk-overlay-pane');
+                panes.forEach(p => {
+                    if (p.style.display !== 'none') {
+                        p.style.display = 'none';
+                    }
+                });
+            });
+            await this.page.waitForTimeout(100);
+        } catch (e) {
+            // Ignore errors - overlays may not exist
+        }
+    }
+
+    /**
+     * Find and open a specific notebook by title
+     */
+    async findAndOpenNotebook(targetTitle) {
+        console.log(`[NOTEBOOKLM] Looking for notebook: "${targetTitle}"`);
+
+        // Wait for notebook cards to appear
+        await this.page.waitForTimeout(2000);
+
+        // Try to find the notebook by its title text
+        // NotebookLM typically shows notebooks as cards with titles
+        const searchSelectors = [
+            // Direct text match
+            `text="${targetTitle}"`,
+            `text=${targetTitle}`,
+            // Partial text match
+            `*:has-text("${targetTitle}")`,
+            // Common card/tile selectors
+            `[aria-label*="${targetTitle}"]`,
+            `.notebook-card:has-text("${targetTitle}")`,
+            `[data-notebook-title*="${targetTitle}"]`,
+        ];
+
+        for (const selector of searchSelectors) {
+            try {
+                const element = await this.page.$(selector);
+                if (element) {
+                    const isVisible = await element.isVisible();
+                    if (isVisible) {
+                        console.log(`[NOTEBOOKLM] Found notebook with selector: ${selector}`);
+                        await element.click();
+                        await this.page.waitForTimeout(3000);
+
+                        // Verify we navigated to the notebook
+                        const newUrl = this.page.url();
+                        if (newUrl.includes('/notebook/')) {
+                            // Extract notebook ID from URL
+                            const notebookIdMatch = newUrl.match(/\/notebook\/([a-f0-9-]+)/);
+                            if (notebookIdMatch) {
+                                const notebookId = notebookIdMatch[1];
+                                // Clean URL (remove query params like ?addSource=true)
+                                const cleanUrl = `https://notebooklm.google.com/notebook/${notebookId}`;
+
+                                console.log(`[NOTEBOOKLM] ✅ Opened notebook: ${targetTitle}`);
+                                console.log(`[NOTEBOOKLM] ✅ Notebook ID: ${notebookId}`);
+                                console.log(`[NOTEBOOKLM] ✅ URL: ${cleanUrl}`);
+
+                                // Update the CONFIG with the actual notebook ID
+                                CONFIG.notebookId = notebookId;
+                                CONFIG.notebookUrl = cleanUrl;
+
+                                // Navigate to clean URL to avoid modal triggers
+                                if (newUrl.includes('?')) {
+                                    console.log('[NOTEBOOKLM] Navigating to clean URL...');
+                                    await this.page.goto(cleanUrl, { waitUntil: 'domcontentloaded' });
+                                    await this.page.waitForTimeout(2000);
+                                }
+
+                                return true;
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                // Continue to next selector
+            }
+        }
+
+        // Fallback: try to find by scanning all clickable elements
+        console.log('[NOTEBOOKLM] Trying fallback search method...');
+        try {
+            // Get all elements that might be notebook titles
+            const allText = await this.page.$$eval('*', (elements) => {
+                return elements
+                    .filter(el => el.innerText && el.innerText.includes('QSL'))
+                    .map(el => ({
+                        tag: el.tagName,
+                        text: el.innerText.substring(0, 100),
+                        className: el.className
+                    }));
+            });
+            console.log('[NOTEBOOKLM] Elements containing "QSL":', JSON.stringify(allText.slice(0, 5), null, 2));
+
+            // Try clicking on any element containing the target text
+            const targetElement = await this.page.locator(`text=${targetTitle}`).first();
+            if (targetElement) {
+                await targetElement.click();
+                await this.page.waitForTimeout(3000);
+
+                const newUrl = this.page.url();
+                if (newUrl.includes('/notebook/')) {
+                    const notebookIdMatch = newUrl.match(/\/notebook\/([a-f0-9-]+)/);
+                    if (notebookIdMatch) {
+                        CONFIG.notebookId = notebookIdMatch[1];
+                        CONFIG.notebookUrl = newUrl;
+                        console.log(`[NOTEBOOKLM] ✅ Found via fallback! ID: ${CONFIG.notebookId}`);
+                        return true;
+                    }
+                }
+            }
+        } catch (e) {
+            console.log(`[NOTEBOOKLM] Fallback search failed: ${e.message}`);
+        }
+
+        return false;
+    }
+
+    /**
      * US-200: Set up browser and verify automation works
      */
     async setupBrowser() {
@@ -154,12 +285,15 @@ class NotebookLMAutomation {
     }
 
     /**
-     * US-201: Open NotebookLM and authenticate
+     * US-201: Open NotebookLM and authenticate, then find specific notebook
      */
     async authenticateNotebookLM() {
-        console.log('[NOTEBOOKLM] Navigating to NotebookLM...');
+        const TARGET_NOTEBOOK = 'QSL Quantum Security Research';
 
-        await this.page.goto(CONFIG.notebookUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        console.log('[NOTEBOOKLM] Navigating to NotebookLM home page...');
+
+        // Go to NotebookLM home page first (not directly to a notebook)
+        await this.page.goto('https://notebooklm.google.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
 
         // Wait a moment for redirects
         await this.page.waitForTimeout(3000);
@@ -182,7 +316,7 @@ class NotebookLMAutomation {
             // Wait for navigation away from login page
             try {
                 await this.page.waitForURL((url) => {
-                    return url.href.includes('notebooklm.google.com/notebook');
+                    return url.href.includes('notebooklm.google.com');
                 }, { timeout: 180000 });
                 console.log('[NOTEBOOKLM] Authentication successful!');
             } catch (e) {
@@ -195,9 +329,44 @@ class NotebookLMAutomation {
             }
         }
 
+        // Wait for home page to load
+        console.log('[NOTEBOOKLM] Waiting for home page to load...');
+        await this.page.waitForTimeout(3000);
+
+        // Take screenshot of home page
+        await this.page.screenshot({
+            path: path.join(CONFIG.screenshotsDir, 'notebooklm-home.png'),
+            fullPage: true
+        });
+
+        // STEP 1: Find and click on the target notebook
+        console.log(`[NOTEBOOKLM] Searching for notebook: "${TARGET_NOTEBOOK}"...`);
+
+        // Look for notebook cards - try multiple selectors
+        const notebookFound = await this.findAndOpenNotebook(TARGET_NOTEBOOK);
+
+        if (!notebookFound) {
+            console.log(`[NOTEBOOKLM] ERROR: Could not find notebook "${TARGET_NOTEBOOK}"`);
+            console.log('[NOTEBOOKLM] Available notebooks on home page - check screenshot');
+            await this.page.screenshot({
+                path: path.join(CONFIG.screenshotsDir, 'notebook-not-found.png'),
+                fullPage: true
+            });
+            return false;
+        }
+
         // Wait for notebook to fully load
         console.log('[NOTEBOOKLM] Waiting for notebook to load...');
         await this.page.waitForTimeout(5000);
+
+        // Dismiss any initial modals/overlays (e.g., from ?addSource=true URL param)
+        console.log('[NOTEBOOKLM] Dismissing any initial modals...');
+        await this.dismissOverlays();
+        await this.page.keyboard.press('Escape');
+        await this.page.waitForTimeout(1000);
+        await this.dismissOverlays();
+        await this.page.keyboard.press('Escape');
+        await this.page.waitForTimeout(500);
 
         // Try multiple selectors for the chat area
         const chatSelectors = [
@@ -516,6 +685,10 @@ class NotebookLMAutomation {
                     addedAt: new Date().toISOString()
                 });
             }
+            // Clean up any lingering modals/overlays before next source
+            await this.dismissOverlays();
+            await this.page.keyboard.press('Escape');
+            await this.page.waitForTimeout(500);
         }
 
         // Add local file sources (if they exist)
@@ -606,7 +779,7 @@ class NotebookLMAutomation {
             await addButton.click();
             await this.page.waitForTimeout(2000);
 
-            // Look for URL input option
+            // Look for URL input option (inside the modal that just opened)
             const urlOptionSelectors = [
                 'button:has-text("Website")',
                 'button:has-text("URL")',
@@ -617,12 +790,15 @@ class NotebookLMAutomation {
                 'text=URL'
             ];
 
+            let urlOptionClicked = false;
             for (const selector of urlOptionSelectors) {
                 try {
                     const urlOption = await this.page.$(selector);
                     if (urlOption && await urlOption.isVisible()) {
                         await urlOption.click();
-                        await this.page.waitForTimeout(1000);
+                        await this.page.waitForTimeout(1500);
+                        urlOptionClicked = true;
+                        console.log(`[SOURCE] Clicked URL option: ${selector}`);
                         break;
                     }
                 } catch (e) {
@@ -630,13 +806,23 @@ class NotebookLMAutomation {
                 }
             }
 
-            // Enter the URL
+            // Wait for URL input field to become enabled after selecting Website option
+            if (urlOptionClicked) {
+                await this.page.waitForTimeout(500);
+            }
+
+            // Enter the URL - NotebookLM uses a textarea with "Paste any links" placeholder
             const urlInputSelectors = [
+                'textarea[placeholder*="Paste"]',
+                'textarea[placeholder*="links"]',
+                'textarea[placeholder*="URL"]',
+                'textarea[placeholder*="url"]',
                 'input[type="url"]',
                 'input[placeholder*="URL"]',
                 'input[placeholder*="url"]',
                 'input[placeholder*="Enter"]',
                 'input[aria-label*="URL"]',
+                '.cdk-overlay-pane textarea',
                 'textarea',
                 'input[type="text"]'
             ];
@@ -650,7 +836,19 @@ class NotebookLMAutomation {
             }
 
             if (urlInput) {
-                await urlInput.fill(source.url);
+                // Try fill first, then fallback to click + type
+                try {
+                    await urlInput.fill(source.url);
+                } catch (fillError) {
+                    console.log(`[SOURCE] fill() failed, trying click + type...`);
+                    try {
+                        await urlInput.click();
+                        await this.page.waitForTimeout(300);
+                        await this.page.keyboard.type(source.url, { delay: 10 });
+                    } catch (typeError) {
+                        console.log(`[SOURCE] Type also failed: ${typeError.message}`);
+                    }
+                }
                 await this.page.waitForTimeout(500);
 
                 // Submit
@@ -668,12 +866,15 @@ class NotebookLMAutomation {
                         if (submitBtn && await submitBtn.isVisible()) {
                             await submitBtn.click();
                             await this.page.waitForTimeout(CONFIG.sourceAddTimeout);
+                            console.log(`[SOURCE] Clicked submit: ${selector}`);
                             break;
                         }
                     } catch (e) {
                         // Continue
                     }
                 }
+            } else {
+                console.log(`[SOURCE] No URL input field found`);
             }
         }
 
@@ -843,6 +1044,7 @@ class NotebookLMAutomation {
         let addNoteBtn = null;
         for (const selector of addNoteSelectors) {
             try {
+                await this.dismissOverlays();
                 addNoteBtn = await this.page.$(selector);
                 if (addNoteBtn && await addNoteBtn.isVisible()) {
                     await addNoteBtn.click();
@@ -856,6 +1058,7 @@ class NotebookLMAutomation {
 
         // If no explicit add note button, try the notes panel
         if (!addNoteBtn) {
+            await this.dismissOverlays();
             const notesPanel = await this.page.$('[class*="notes"]') ||
                                await this.page.$('[aria-label*="Notes"]') ||
                                await this.page.$('text=Notes');
@@ -878,6 +1081,7 @@ class NotebookLMAutomation {
 
         for (const selector of noteInputSelectors) {
             try {
+                await this.dismissOverlays();
                 const input = await this.page.$(selector);
                 if (input && await input.isVisible()) {
                     await input.click();
@@ -973,10 +1177,13 @@ class NotebookLMAutomation {
             ];
 
             for (const selector of addNoteSelectors) {
+                await this.dismissOverlays();
                 const btn = await this.page.$(selector);
                 if (btn && await btn.isVisible()) {
                     await btn.click();
                     await this.page.waitForTimeout(1000);
+
+                    await this.dismissOverlays();
 
                     // Type content
                     await this.page.keyboard.type(noteContent.substring(0, 500), { delay: 5 });
