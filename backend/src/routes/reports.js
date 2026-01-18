@@ -19,6 +19,7 @@ const { generateReportContent } = require('../services/reportContent');
 const { generatePDF, generatePDFBuffer } = require('../services/pdfGenerator');
 const { sendReportEmail } = require('../services/emailService');
 const ThreadValidator = require('../utils/threadValidator');
+const { generateNotebookQueries } = require('../prompts/notebooklm-queries');
 
 // Ensure reports directory exists
 const reportsDir = path.join(__dirname, '..', '..', 'reports');
@@ -304,6 +305,204 @@ router.get('/job/:jobId', requireAuth, async (req, res) => {
   }
 
   res.json(response);
+});
+
+/**
+ * GET /api/reports/:assessmentId/notebooklm-queries
+ * Generate targeted NotebookLM queries based on assessment responses
+ * MVP Option A: Returns queries for user to manually copy/paste to NotebookLM
+ */
+router.get('/:assessmentId/notebooklm-queries', requireAuth, async (req, res) => {
+  try {
+    const assessmentId = parseInt(req.params.assessmentId, 10);
+
+    if (isNaN(assessmentId)) {
+      return res.status(400).json({ error: 'Invalid assessment ID' });
+    }
+
+    // Find and validate assessment
+    const assessment = await Assessment.findById(assessmentId);
+
+    if (!assessment) {
+      return res.status(404).json({ error: 'Assessment not found' });
+    }
+
+    if (assessment.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Parse responses
+    const responses = typeof assessment.responses === 'string'
+      ? JSON.parse(assessment.responses)
+      : assessment.responses || {};
+
+    // Get scores
+    let category_scores = assessment.scores;
+    if (typeof category_scores === 'string') {
+      try {
+        category_scores = JSON.parse(category_scores);
+      } catch (e) {
+        category_scores = null;
+      }
+    }
+
+    const overall_score = assessment.overall_score || assessment.risk_score || 0;
+    const risk_level = getRiskLevel(overall_score);
+
+    // Generate NotebookLM queries
+    const queries = generateNotebookQueries({
+      org_name: assessment.organization_name || 'Healthcare Organization',
+      org_type: assessment.organization_type || 'Hospital',
+      employee_count: assessment.employee_count || 'Unknown',
+      responses,
+      overall_score,
+      risk_level: risk_level.level
+    });
+
+    console.log('[NotebookLM Queries] Generated queries for assessment', {
+      assessmentId,
+      notebookCount: Object.keys(queries.queriesByNotebook).length,
+      timestamp: new Date().toISOString()
+    });
+
+    res.status(200).json({
+      success: true,
+      assessmentId,
+      queries
+    });
+
+  } catch (error) {
+    console.error('[NotebookLM Queries] Error generating queries', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+    res.status(500).json({
+      error: 'Failed to generate NotebookLM queries: ' + error.message
+    });
+  }
+});
+
+/**
+ * POST /api/reports/:assessmentId/notebooklm-synthesis
+ * Accept NotebookLM synthesis responses and generate enhanced report
+ * MVP Option A: User pastes NotebookLM responses back to the application
+ */
+router.post('/:assessmentId/notebooklm-synthesis', requireAuth, async (req, res) => {
+  try {
+    const assessmentId = parseInt(req.params.assessmentId, 10);
+    const { synthesis } = req.body;
+
+    if (isNaN(assessmentId)) {
+      return res.status(400).json({ error: 'Invalid assessment ID' });
+    }
+
+    if (!synthesis || typeof synthesis !== 'object') {
+      return res.status(400).json({
+        error: 'Synthesis object required. Expected format: { qsl_quantum_security: "...", hhs_hipaa: "...", nist_pqc: "..." }'
+      });
+    }
+
+    // Find and validate assessment
+    const assessment = await Assessment.findById(assessmentId);
+
+    if (!assessment) {
+      return res.status(404).json({ error: 'Assessment not found' });
+    }
+
+    if (assessment.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Parse responses
+    const responses = typeof assessment.responses === 'string'
+      ? JSON.parse(assessment.responses)
+      : assessment.responses || {};
+
+    // Get questions
+    const questions = await db('questions').select('*').orderBy('order_index', 'asc');
+
+    // Calculate scores
+    let category_scores = assessment.scores;
+    if (typeof category_scores === 'string') {
+      try {
+        category_scores = JSON.parse(category_scores);
+      } catch (e) {
+        category_scores = null;
+      }
+    }
+
+    let overall_score = assessment.overall_score || assessment.risk_score;
+
+    if (!category_scores && responses) {
+      const calculated = calculateScores(responses, questions);
+      category_scores = calculated.category_scores;
+      overall_score = calculated.overall_score;
+    }
+
+    const risk_level = getRiskLevel(overall_score);
+    const percentile = getPercentile(overall_score);
+
+    // Prepare data for Claude with NotebookLM synthesis
+    const assessmentData = {
+      org_name: assessment.organization_name || 'Healthcare Organization',
+      org_type: assessment.organization_type || 'Hospital',
+      employee_count: assessment.employee_count || '1000-5000',
+      responses,
+      questions,
+      category_scores: category_scores || {},
+      overall_score,
+      percentile,
+      risk_level,
+      notebooklm_synthesis: synthesis  // Add the NotebookLM synthesis
+    };
+
+    console.log('[NotebookLM Synthesis] Generating enhanced report', {
+      assessmentId,
+      synthesisKeys: Object.keys(synthesis),
+      timestamp: new Date().toISOString()
+    });
+
+    // Generate report with synthesis
+    const result = await generateReport(assessmentData);
+
+    if (!result.success) {
+      return res.status(500).json({
+        error: 'Report generation failed',
+        details: result.error
+      });
+    }
+
+    // Save the report
+    const report = await Report.create({
+      assessment_id: assessmentId,
+      content: result.report,
+      synthesis_used: true
+    });
+
+    console.log('[NotebookLM Synthesis] Enhanced report generated', {
+      assessmentId,
+      reportId: report.id,
+      timestamp: new Date().toISOString()
+    });
+
+    res.status(200).json({
+      success: true,
+      report: Report.toPublic(report),
+      content: result.report,
+      usage: result.usage
+    });
+
+  } catch (error) {
+    console.error('[NotebookLM Synthesis] Error generating report', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+    res.status(500).json({
+      error: 'Failed to generate report with synthesis: ' + error.message
+    });
+  }
 });
 
 /**
