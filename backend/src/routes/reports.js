@@ -20,6 +20,7 @@ const { generatePDF, generatePDFBuffer } = require('../services/pdfGenerator');
 const { sendReportEmail } = require('../services/emailService');
 const ThreadValidator = require('../utils/threadValidator');
 const { generateNotebookQueries } = require('../prompts/notebooklm-queries');
+const { getSourcedContent } = require('../services/notebookService');
 
 // Ensure reports directory exists
 const reportsDir = path.join(__dirname, '..', '..', 'reports');
@@ -168,6 +169,33 @@ router.post('/:assessmentId/generate', requireAuth, async (req, res) => {
           percentile,
           risk_level
         };
+
+        // Try to get sourced content from NotebookLM (with fallback)
+        let sourcedContent = null;
+        try {
+          console.log('[Report Generation] Fetching sourced content from NotebookLM', { jobId, assessmentId });
+          sourcedContent = await getSourcedContent(assessmentData);
+
+          if (sourcedContent && sourcedContent.success) {
+            // Convert to format expected by generatePrompt (notebooklm_synthesis)
+            const synthesis = {};
+            for (const [notebookId, data] of Object.entries(sourcedContent.notebooks)) {
+              synthesis[notebookId] = data.response;
+            }
+            assessmentData.notebooklm_synthesis = synthesis;
+            console.log('[Report Generation] NotebookLM sourced content added', {
+              jobId,
+              notebooksQueried: Object.keys(sourcedContent.notebooks).length
+            });
+          } else {
+            console.log('[Report Generation] NotebookLM sourcing returned no content, proceeding without', { jobId });
+          }
+        } catch (notebookError) {
+          console.warn('[Report Generation] NotebookLM sourcing failed, proceeding without sourced content', {
+            jobId,
+            error: notebookError.message
+          });
+        }
 
         console.log('[Report Generation] Calling Claude API', { jobId, assessmentId });
 
