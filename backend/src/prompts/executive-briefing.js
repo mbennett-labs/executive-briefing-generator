@@ -3,6 +3,9 @@
  *
  * This prompt template generates personalized post-quantum security
  * executive briefings based on assessment responses and scores.
+ *
+ * Enhanced with NotebookLM synthesis integration for targeted,
+ * research-backed content from curated sources.
  */
 
 const CATEGORY_NAMES = {
@@ -12,6 +15,22 @@ const CATEGORY_NAMES = {
   vendor_risk: 'Vendor Risk',
   incident_response: 'Incident Response',
   quantum_readiness: 'Quantum Readiness'
+};
+
+// NotebookLM source descriptions for context
+const NOTEBOOK_SOURCES = {
+  qsl_quantum_security: {
+    name: 'QSL Quantum Security Research',
+    description: 'Quantum Shield Labs playbook, industry research, and threat timelines'
+  },
+  hhs_hipaa: {
+    name: 'HHS HIPAA Compliance',
+    description: 'HHS regulations, HIPAA compliance guidance, and healthcare security standards'
+  },
+  nist_pqc: {
+    name: 'NIST PQC Standards',
+    description: 'NIST FIPS 203/204/205, post-quantum cryptography standards, and migration guidance'
+  }
 };
 
 /**
@@ -26,6 +45,7 @@ const CATEGORY_NAMES = {
  * @param {number} params.overall_score - Overall assessment score (0-100)
  * @param {number} params.percentile - Percentile ranking vs industry
  * @param {object} params.risk_level - Risk level object with level and color
+ * @param {object} [params.notebooklm_synthesis] - Optional synthesis from NotebookLM sources
  * @returns {string} The complete prompt for Claude
  */
 function generatePrompt(params) {
@@ -38,7 +58,8 @@ function generatePrompt(params) {
     category_scores,
     overall_score,
     percentile,
-    risk_level
+    risk_level,
+    notebooklm_synthesis
   } = params;
 
   // Format responses for the prompt
@@ -49,7 +70,11 @@ function generatePrompt(params) {
     .map(([cat, score]) => `- ${CATEGORY_NAMES[cat]}: ${score}/100`)
     .join('\n');
 
-  return `You are a post-quantum cryptography security expert creating a personalized executive briefing for a healthcare organization. Generate a comprehensive, actionable report based on the assessment data provided.
+  // Format NotebookLM synthesis if provided
+  const synthesisSection = formatNotebookSynthesis(notebooklm_synthesis);
+  const hasSynthesis = synthesisSection.length > 0;
+
+  return `You are a post-quantum cryptography security expert creating a personalized executive briefing for a healthcare organization. Generate a comprehensive, actionable report based on the assessment data provided.${hasSynthesis ? '\n\n**IMPORTANT**: You have been provided with targeted research synthesis from curated NotebookLM sources. Use this synthesis to provide SPECIFIC, RESEARCH-BACKED recommendations rather than generic advice. Reference specific findings, statistics, and recommendations from the synthesis.' : ''}
 
 ## ORGANIZATION PROFILE
 - Organization Name: ${org_name}
@@ -65,7 +90,7 @@ ${formattedScores}
 
 ## DETAILED RESPONSES
 ${formattedResponses}
-
+${synthesisSection}
 ## DOMAIN KNOWLEDGE - POST-QUANTUM CRYPTOGRAPHY
 
 ### The Quantum Threat
@@ -205,8 +230,44 @@ function formatResponses(responses, questions) {
   return output;
 }
 
+/**
+ * Format NotebookLM synthesis for inclusion in the prompt
+ * @param {object} synthesis - Synthesis responses from NotebookLM sources
+ * @returns {string} Formatted synthesis text
+ */
+function formatNotebookSynthesis(synthesis) {
+  if (!synthesis || typeof synthesis !== 'object') {
+    return '';
+  }
+
+  const entries = Object.entries(synthesis).filter(([_, value]) => value && value.trim());
+
+  if (entries.length === 0) {
+    return '';
+  }
+
+  let output = '\n## NOTEBOOKLM RESEARCH SYNTHESIS\n\n';
+  output += '**The following research synthesis has been generated from curated sources specific to this organization\'s profile. Use these findings to inform your recommendations.**\n\n';
+
+  for (const [sourceKey, content] of entries) {
+    const source = NOTEBOOK_SOURCES[sourceKey];
+    const sourceName = source ? source.name : sourceKey;
+    const sourceDesc = source ? ` (${source.description})` : '';
+
+    output += `### ${sourceName}${sourceDesc}\n\n`;
+    output += content.trim();
+    output += '\n\n';
+  }
+
+  output += '---\n\n';
+  output += '**Instructions**: Incorporate the above research synthesis into your executive briefing. Reference specific findings, statistics, timelines, and recommendations from the synthesis. Do NOT use generic advice - use the specific insights provided above.\n\n';
+
+  return output;
+}
+
 module.exports = {
   generatePrompt,
+  formatNotebookSynthesis,
   formatResponses,
   CATEGORY_NAMES
 };
