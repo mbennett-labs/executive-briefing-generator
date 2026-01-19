@@ -6,8 +6,12 @@
  */
 
 const { generateNotebookQueries } = require('../prompts/notebooklm-queries');
-const { NotebookLMAutomation } = require('../../../scripts/notebooklm-automation');
-
+let NotebookLMAutomation = null;
+try {
+  NotebookLMAutomation = require('../../../scripts/notebooklm-automation').NotebookLMAutomation;
+} catch (e) {
+  console.log('[NotebookService] Automation not available:', e.message);
+}
 /**
  * Get sourced content from NotebookLM for an assessment
  *
