@@ -265,8 +265,76 @@ function formatNotebookSynthesis(synthesis) {
   return output;
 }
 
+/**
+ * Build report prompt with NotebookLM content integration
+ * Optimized for the admin workflow with pre-collected NotebookLM responses
+ *
+ * @param {object} assessmentData - Assessment data with scores and org profile
+ * @param {object} notebookContent - NotebookLM responses keyed by query_id
+ * @returns {string} The complete prompt for Claude
+ */
+function buildReportPrompt(assessmentData, notebookContent) {
+  const { orgProfile, answers, scores } = assessmentData;
+
+  return `You are a senior cybersecurity consultant creating an executive briefing for ${orgProfile.name}.
+
+## ORGANIZATION PROFILE
+- Name: ${orgProfile.name}
+- Type: ${orgProfile.type}
+- Size: ${orgProfile.employee_count} employees
+
+## RISK SCORES
+- Overall: ${scores.overall}/100
+- Data Sensitivity: ${scores.data_sensitivity || 'N/A'}/100
+- Encryption: ${scores.encryption || 'N/A'}/100
+- Compliance: ${scores.compliance || 'N/A'}/100
+- Vendor Risk: ${scores.vendor_risk || 'N/A'}/100
+- Incident Response: ${scores.incident_response || 'N/A'}/100
+- Quantum Readiness: ${scores.quantum_readiness || 'N/A'}/100
+
+## NOTEBOOKLM RESEARCH (Source-Grounded Analysis)
+
+### Data Sensitivity & HNDL Threat Analysis:
+${notebookContent.data_sensitivity || 'Not available'}
+
+### Technical Migration Roadmap:
+${notebookContent.encryption || 'Not available'}
+
+### HIPAA Compliance Analysis:
+${notebookContent.compliance || 'Not available'}
+
+### Executive Synthesis:
+${notebookContent.executive_synthesis || 'Not available'}
+
+---
+
+## YOUR TASK
+
+Create a personalized 8-page executive briefing using the research above.
+
+CRITICAL RULES:
+1. Reference "${orgProfile.name}" by name throughout - never "the organization"
+2. Use "your" not "their" - write TO them
+3. Every recommendation must connect to their specific answers and scores
+4. Integrate the NotebookLM research naturally - don't just copy it
+5. Be urgent but not alarmist - CISO-appropriate tone
+6. Include specific numbers from their assessment
+
+SECTIONS:
+1. Executive Summary (reference their ${scores.overall}/100 score)
+2. Risk Profile Analysis (call out their lowest scores)
+3. The Quantum Threat (specific to their retention period)
+4. Cost of Inaction (based on their org size)
+5. Priority Recommendations (3 actions based on gaps)
+6. Investment Estimate (phased approach)
+7. Next Steps with QSL
+
+Generate the complete briefing content now.`;
+}
+
 module.exports = {
   generatePrompt,
+  buildReportPrompt,
   formatNotebookSynthesis,
   formatResponses,
   CATEGORY_NAMES
