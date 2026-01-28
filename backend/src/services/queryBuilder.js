@@ -1,6 +1,16 @@
 /**
  * Query Builder Service
  * Transforms questionnaire answers into targeted NotebookLM queries
+ *
+ * Answer keys are numeric strings: "1", "2", "3", etc.
+ *
+ * Question Mapping:
+ * Data Sensitivity (Q1-8): "1"-"8"
+ * Encryption (Q9-16): "9"-"16"
+ * Compliance (Q17-24): "17"-"24"
+ * Vendor Risk (Q25-32): "25"-"32"
+ * Incident Response (Q33-40): "33"-"40"
+ * Quantum Readiness (Q41-48): "41"-"48"
  */
 
 const NOTEBOOKS = {
@@ -19,22 +29,32 @@ const NOTEBOOKS = {
 };
 
 /**
+ * Helper to format array or string values
+ */
+function formatAnswer(value, fallback = 'Not specified') {
+  if (!value) return fallback;
+  if (Array.isArray(value)) return value.join(', ');
+  return value;
+}
+
+/**
  * Build Query 1: Data Sensitivity & HNDL Threat Analysis
  */
 function buildDataSensitivityQuery(answers, orgProfile) {
-  // Extract relevant answers
-  const phiTypes = answers.q1_phi_types || answers.data_sensitivity?.q1 || 'Not specified';
-  const recordCount = answers.q2_record_count || answers.data_sensitivity?.q2 || 'Not specified';
-  const retention = answers.q3_retention_period || answers.data_sensitivity?.q3 || 'Not specified';
-  const longTermSensitive = answers.q4_long_term_sensitive || answers.data_sensitivity?.q4 || 'Unknown';
-  const classification = answers.q5_classification || answers.data_sensitivity?.q5 || 'Unknown';
-  const accessCount = answers.q6_access_count || answers.data_sensitivity?.q6 || 'Unknown';
+  // Data Sensitivity questions use keys "1" through "8"
+  const phiTypes = answers['1'] || 'Not specified';           // PHI types (array)
+  const recordCount = answers['2'] || 'Not specified';        // Record count
+  const retention = answers['3'] || 'Not specified';          // Retention period
+  const longTermSensitive = answers['4'] || 'Unknown';        // Long-term sensitive (Yes/No)
+  const classification = answers['5'] || 'Unknown';           // Classification maturity
+  const dataMapped = answers['6'] || 'Unknown';               // Data mapped
+  const accessLevel = answers['7'] || 'Unknown';              // Access level
+  const dataInventory = answers['8'] || 'Unknown';            // Data inventory
 
   // Identify high-risk PHI types
   const highRiskTypes = ['Genetic data', 'Mental health', 'Substance abuse', 'HIV status'];
-  const hasHighRiskPHI = Array.isArray(phiTypes)
-    ? phiTypes.some(t => highRiskTypes.includes(t))
-    : false;
+  const phiArray = Array.isArray(phiTypes) ? phiTypes : [];
+  const hasHighRiskPHI = phiArray.some(t => highRiskTypes.includes(t));
 
   let query = `I'm preparing an executive briefing for a healthcare organization with these specific data characteristics:
 
@@ -46,10 +66,12 @@ ORGANIZATION PROFILE:
 - Data Retention Requirement: ${retention}
 
 DATA SENSITIVITY FINDINGS:
-- PHI Types Stored: ${Array.isArray(phiTypes) ? phiTypes.join(', ') : phiTypes}
+- PHI Types Stored: ${formatAnswer(phiTypes)}
 - Long-term sensitive data stored: ${longTermSensitive}
 - Data classification maturity: ${classification}
-- People with access to sensitive data: ${accessCount}
+- Data mapping status: ${dataMapped}
+- Access controls: ${accessLevel}
+- Data inventory: ${dataInventory}
 
 Based on these SPECIFIC characteristics, analyze:
 
@@ -60,7 +82,7 @@ Based on these SPECIFIC characteristics, analyze:
   if (hasHighRiskPHI) {
     query += `
 
-3. **Lifetime Sensitivity Analysis**: They store high-risk data types. Explain why these create exceptional "harvest now, decrypt later" risk compared to changeable data like credit cards.`;
+3. **Lifetime Sensitivity Analysis**: They store high-risk data types (${phiArray.filter(t => highRiskTypes.includes(t)).join(', ')}). Explain why these create exceptional "harvest now, decrypt later" risk compared to changeable data like credit cards.`;
   }
 
   query += `
@@ -82,23 +104,26 @@ Be specific to their situation. Reference sources where possible. Write for a CI
  * Build Query 2: Encryption & Technical Migration Roadmap
  */
 function buildEncryptionQuery(answers, orgProfile) {
-  const atRest = answers.q9_encryption_at_rest || answers.encryption?.q9 || 'Unknown';
-  const inTransit = answers.q10_encryption_in_transit || answers.encryption?.q10 || 'Unknown';
-  const keyExchange = answers.q11_key_exchange || answers.encryption?.q11 || 'Unknown';
-  const hasKMS = answers.q12_kms || answers.encryption?.q12 || 'Unknown';
-  const hasInventory = answers.q14_crypto_inventory || answers.encryption?.q14 || 'Unknown';
-  const pqcTesting = answers.q15_pqc_testing || answers.encryption?.q15 || 'No';
-  const vulnerablePercent = answers.q16_vulnerable_percentage || answers.encryption?.q16 || 'Unknown';
+  // Encryption questions use keys "9" through "16"
+  const atRest = answers['9'] || 'Unknown';                   // Encryption at rest (array)
+  const keyExchange = answers['10'] || 'Unknown';             // Key exchange algorithms (array)
+  const tlsVersions = answers['11'] || 'Unknown';             // TLS versions (array)
+  const kmsType = answers['12'] || 'Unknown';                 // KMS type
+  const cryptoInventory = answers['13'] || 'Unknown';         // Crypto inventory status
+  const algorithmStandards = answers['14'] || 'Unknown';      // Algorithm standards
+  const pqcTesting = answers['15'] || 'No';                   // PQC testing status
+  const vulnerablePercent = answers['16'] || 'Unknown';       // Vulnerable percentage
 
   const query = `I need technical migration guidance for a healthcare organization:
 
 CURRENT ENCRYPTION STATE:
 - Organization: ${orgProfile.name || 'Healthcare Organization'}
-- Data at rest: ${atRest}
-- Data in transit: ${inTransit}
-- Key exchange algorithms: ${keyExchange}
-- Centralized KMS: ${hasKMS}
-- Complete cryptographic inventory: ${hasInventory}
+- Data at rest encryption: ${formatAnswer(atRest)}
+- Key exchange algorithms: ${formatAnswer(keyExchange)}
+- TLS versions: ${formatAnswer(tlsVersions)}
+- Key Management System: ${kmsType}
+- Cryptographic inventory status: ${cryptoInventory}
+- Algorithm standards followed: ${algorithmStandards}
 - PQC testing status: ${pqcTesting}
 - Estimated quantum-vulnerable systems: ${vulnerablePercent}
 
@@ -106,13 +131,13 @@ Based on this technical profile, provide:
 
 1. **Vulnerability Assessment**: Which algorithms in their stack are vulnerable to Shor's vs Grover's algorithm? Practical difference for priority?
 
-2. **NIST Standards Application**: Which NIST PQC standard (FIPS 203, 204, 205) addresses each vulnerable algorithm? What replaces ${keyExchange}?
+2. **NIST Standards Application**: Which NIST PQC standard (FIPS 203, 204, 205) addresses each vulnerable algorithm? What replaces ${formatAnswer(keyExchange)}?
 
-3. **Migration Priority**: Given ${vulnerablePercent} vulnerable and ${hasInventory} inventory status, what's the migration sequence?
+3. **Migration Priority**: Given ${vulnerablePercent} vulnerable and ${cryptoInventory} inventory status, what's the migration sequence?
 
-4. **Infrastructure Gaps**: ${hasKMS === 'No' || hasInventory === 'No' ? 'They lack centralized KMS and/or inventory. What must they build first?' : 'How should they leverage their existing infrastructure?'}
+4. **Infrastructure Gaps**: ${cryptoInventory === 'No' || cryptoInventory === 'None' ? 'They lack a cryptographic inventory. What must they build first?' : 'How should they leverage their existing infrastructure?'}
 
-5. **Next Steps**: ${pqcTesting === 'No' ? 'They haven\'t begun PQC testing. What are the first 3 technical steps for the next 90 days?' : 'How do they move from testing to production?'}
+5. **Next Steps**: ${pqcTesting === 'No' || pqcTesting === 'Not started' ? 'They haven\'t begun PQC testing. What are the first 3 technical steps for the next 90 days?' : 'How do they move from testing to production?'}
 
 6. **Hybrid Cryptography**: Should they implement hybrid mode during transition?
 
@@ -131,23 +156,28 @@ Reference NIST guidance and industry timelines. Be technically specific.`;
  * Build Query 3: Compliance Gap Analysis
  */
 function buildComplianceQuery(answers, orgProfile) {
-  const regulations = answers.q17_regulations || answers.compliance?.q17 || 'HIPAA';
-  const lastHIPAA = answers.q18_last_hipaa_assessment || answers.compliance?.q18 || 'Unknown';
-  const keyPolicy = answers.q19_key_policy || answers.compliance?.q19 || 'Unknown';
-  const baaStatus = answers.q20_baa_status || answers.compliance?.q20 || 'Unknown';
-  const auditReady = answers.q21_audit_readiness || answers.compliance?.q21 || 'Unknown';
-  const pqcCompliance = answers.q23_pqc_compliance || answers.compliance?.q23 || 'No';
+  // Compliance questions use keys "17" through "24"
+  const regulations = answers['17'] || 'HIPAA';               // Regulations (array)
+  const hasComplianceProgram = answers['18'] || 'Unknown';    // Has compliance program
+  const lastHIPAA = answers['19'] || 'Unknown';               // Last HIPAA assessment
+  const baaStatus = answers['20'] || 'Unknown';               // BAA status
+  const reviewFrequency = answers['21'] || 'Unknown';         // Review frequency
+  const auditReadiness = answers['22'] || 'Unknown';          // Audit readiness
+  const complianceLevel = answers['23'] || 'Unknown';         // Compliance level
+  const documentationStatus = answers['24'] || 'Unknown';     // Documentation status
 
   const query = `I need HIPAA compliance guidance for a healthcare organization:
 
 COMPLIANCE PROFILE:
 - Organization: ${orgProfile.name || 'Healthcare Organization'}
-- Applicable regulations: ${Array.isArray(regulations) ? regulations.join(', ') : regulations}
+- Applicable regulations: ${formatAnswer(regulations)}
+- Formal compliance program: ${hasComplianceProgram}
 - Last HIPAA Security Risk Assessment: ${lastHIPAA}
-- Encryption key management policy: ${keyPolicy}
-- BAAs address encryption requirements: ${baaStatus}
-- Current audit readiness: ${auditReady}
-- PQC compliance assessment: ${pqcCompliance}
+- BAA encryption requirements: ${baaStatus}
+- Compliance review frequency: ${reviewFrequency}
+- Audit readiness: ${auditReadiness}
+- Current compliance level: ${complianceLevel}
+- Documentation status: ${documentationStatus}
 
 Based on this compliance posture, provide:
 
@@ -155,11 +185,11 @@ Based on this compliance posture, provide:
 
 2. **Assessment Gap**: Their last assessment was ${lastHIPAA}. What compliance implications and likely audit findings?
 
-3. **BAA Exposure**: With BAAs ${baaStatus} addressing encryption, what happens when vendor encryption becomes quantum-vulnerable?
+3. **BAA Exposure**: With BAA status "${baaStatus}", what happens when vendor encryption becomes quantum-vulnerable?
 
 4. **Post-Quantum Compliance**: Current PQC regulatory requirements? What should they document NOW for due diligence?
 
-5. **Audit Preparation**: They're "${auditReady}" for audit. What documentation should they prepare for emerging cryptographic risks?
+5. **Audit Preparation**: They're "${auditReadiness}" for audit. What documentation should they prepare for emerging cryptographic risks?
 
 Reference HHS guidance, OCR enforcement, and HIPAA requirements.`;
 
@@ -179,23 +209,44 @@ function buildExecutiveSynthesisQuery(answers, orgProfile, scores) {
   const overallScore = scores?.overall || 50;
   const riskLevel = overallScore < 30 ? 'CRITICAL' : overallScore < 50 ? 'HIGH' : overallScore < 70 ? 'MODERATE' : 'LOW';
 
-  // Build key findings from worst answers
+  // Build key findings from answers
+  // Using numeric keys for quantum readiness questions (Q41-48)
   const keyFindings = [];
 
-  if (answers.q3_retention_period?.includes('30') || answers.q3_retention_period?.includes('50')) {
+  // Check retention period (Q3)
+  const retention = answers['3'] || '';
+  if (retention.includes('30') || retention.includes('50') || retention.toLowerCase().includes('permanent')) {
     keyFindings.push('Extended data retention creates exceptional HNDL exposure');
   }
-  if (answers.q16_vulnerable_percentage?.includes('75') || answers.q16_vulnerable_percentage?.includes('100')) {
+
+  // Check vulnerable percentage (Q16)
+  const vulnerable = answers['16'] || '';
+  if (vulnerable.includes('75') || vulnerable.includes('100') || vulnerable.toLowerCase().includes('most') || vulnerable.toLowerCase().includes('all')) {
     keyFindings.push('Majority of systems use quantum-vulnerable encryption');
   }
-  if (answers.q42_pqc_roadmap === 'No') {
+
+  // Check PQC roadmap (Q46 - assuming quantum readiness)
+  const pqcRoadmap = answers['46'] || '';
+  if (pqcRoadmap === 'No' || pqcRoadmap.toLowerCase().includes('no')) {
     keyFindings.push('No post-quantum cryptography migration roadmap exists');
   }
-  if (answers.q41_leadership_awareness === 'Not aware') {
+
+  // Check leadership awareness (Q41)
+  const leadershipAwareness = answers['41'] || '';
+  if (leadershipAwareness.toLowerCase().includes('not aware') || leadershipAwareness === 'No') {
     keyFindings.push('Executive leadership is not aware of quantum threats');
   }
-  if (answers.q40_hndl_monitoring === 'No') {
+
+  // Check HNDL monitoring (Q44 - assuming)
+  const hndlMonitoring = answers['44'] || '';
+  if (hndlMonitoring === 'No' || hndlMonitoring.toLowerCase().includes('no')) {
     keyFindings.push('No monitoring for "harvest now, decrypt later" attacks');
+  }
+
+  // Check PQC testing (Q15)
+  const pqcTesting = answers['15'] || '';
+  if (pqcTesting === 'No' || pqcTesting.toLowerCase().includes('not started')) {
+    keyFindings.push('No PQC testing or evaluation has begun');
   }
 
   const query = `I need to synthesize an executive summary for a healthcare CISO:
@@ -250,10 +301,10 @@ function generateAllQueries(assessmentData) {
 
   return {
     queries: [
-      buildDataSensitivityQuery(answers, orgProfile),
-      buildEncryptionQuery(answers, orgProfile),
-      buildComplianceQuery(answers, orgProfile),
-      buildExecutiveSynthesisQuery(answers, orgProfile, scores)
+      buildDataSensitivityQuery(answers || {}, orgProfile || {}),
+      buildEncryptionQuery(answers || {}, orgProfile || {}),
+      buildComplianceQuery(answers || {}, orgProfile || {}),
+      buildExecutiveSynthesisQuery(answers || {}, orgProfile || {}, scores)
     ],
     generatedAt: new Date().toISOString(),
     assessmentId: assessmentData.id
